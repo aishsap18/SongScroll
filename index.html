@@ -70,6 +70,79 @@
       transform: scale(0.98);
     }
 
+    /* ── Auth Screen ─────────────────────────────────── */
+    #auth-screen {
+      align-items: center;
+      justify-content: center;
+      z-index: 110;
+    }
+    .auth-card {
+      width: 380px; max-width: 90vw;
+      background: var(--bg-glass); backdrop-filter: blur(24px);
+      border: 1px solid var(--border-hi); border-radius: var(--radius);
+      padding: 36px 32px; text-align: center;
+    }
+    .auth-tabs {
+      display: flex; gap: 0; margin-bottom: 28px;
+      background: var(--bg-surface); border-radius: 100px;
+      padding: 4px; border: 1px solid var(--border);
+    }
+    .auth-tab {
+      flex: 1; padding: 10px 0; border: none; background: transparent;
+      color: var(--text-dim); font-family: var(--font); font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; border-radius: 100px;
+      transition: var(--transition);
+    }
+    .auth-tab.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+    .auth-input {
+      width: 100%; padding: 12px 16px; margin-bottom: 14px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-family: var(--font); font-size: 0.95rem; outline: none;
+      transition: var(--transition);
+    }
+    .auth-input:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
+    .auth-input::placeholder { color: var(--text-dim); }
+    .auth-btn {
+      width: 100%; padding: 12px 0; margin-top: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi));
+      color: #fff; border: none; border-radius: 100px;
+      font-family: var(--font); font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: var(--transition);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px var(--accent-glow); }
+    .auth-btn:active { transform: translateY(0); }
+    .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .auth-msg {
+      font-size: 0.85rem; margin-top: 14px; min-height: 20px;
+      line-height: 1.4; transition: var(--transition);
+    }
+    .auth-msg.error { color: var(--danger); }
+    .auth-msg.success { color: var(--success); }
+    .auth-confirm { display: none; }
+    .auth-confirm.visible { display: block; }
+
+    .greeting-bar {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 12px; padding: 8px 24px;
+      position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    }
+    .greeting-text {
+      font-size: 0.85rem; color: var(--text-dim); font-weight: 500;
+    }
+    .greeting-text strong { color: var(--accent-hi); font-weight: 700; }
+    .logout-btn {
+      padding: 6px 16px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 100px;
+      color: var(--text-dim); font-family: var(--font); font-size: 0.8rem;
+      font-weight: 500; cursor: pointer; transition: var(--transition);
+    }
+    .logout-btn:hover { background: rgba(253,121,168,0.15); color: var(--danger); border-color: var(--danger); }
+
     /* ── Upload Screen ────────────────────────────────── */
     #upload-screen {
       align-items: center;
@@ -552,8 +625,35 @@
 </head>
 <body>
 
+  <!-- ─── Auth Screen ────────────────────────────────────── -->
+  <div id="auth-screen" class="screen">
+    <div class="auth-card">
+      <div class="brand" style="justify-content:center; margin-bottom: 4px;">
+        <div class="brand-icon">🎵</div>
+        <h1>SongScroll</h1>
+      </div>
+      <p class="brand-sub" style="margin-bottom: 28px;">Sign in to continue</p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login">Login</button>
+        <button class="auth-tab" id="auth-tab-signup">Sign Up</button>
+      </div>
+
+      <input type="text" class="auth-input" id="auth-username" placeholder="Username" autocomplete="username" />
+      <input type="password" class="auth-input" id="auth-password" placeholder="Password" autocomplete="current-password" />
+      <input type="password" class="auth-input auth-confirm" id="auth-confirm-password" placeholder="Confirm Password" autocomplete="new-password" />
+
+      <button class="auth-btn" id="auth-submit-btn">Login</button>
+      <div class="auth-msg" id="auth-msg"></div>
+    </div>
+  </div>
+
   <!-- ─── Upload / Mode Selection Screen ───────────────── -->
-  <div id="upload-screen" class="screen">
+  <div id="upload-screen" class="screen hidden">
+    <div class="greeting-bar">
+      <span class="greeting-text">Welcome, <strong id="greeting-username">User</strong></span>
+      <button class="logout-btn" id="logout-btn">Logout</button>
+    </div>
     <div class="brand">
       <div class="brand-icon">🎵</div>
       <h1>SongScroll</h1>
@@ -764,7 +864,15 @@
     const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
 
+    // ── Supabase Auth ────────────────────────────────────
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(
+      'https://byspcgjxrrbyyvxyvvku.supabase.co',
+      'sb_publishable_ELP1qyx8EiGBhGx1HTYtiQ_fW_J1OBJ'
+    );
+
     // ── Screens ───────────────────────────────────────
+    const authScreen     = document.getElementById('auth-screen');
     const uploadScreen   = document.getElementById('upload-screen');
     const pdfScreen      = document.getElementById('pdf-screen');
     const textPlayScreen = document.getElementById('text-play-screen');
@@ -772,8 +880,144 @@
     const loaderText     = document.getElementById('loader-text');
 
     function showScreen(screen) {
-      [uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
+      [authScreen, uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
       screen.classList.remove('hidden');
+    }
+
+    // ── Auth UI Elements ─────────────────────────────────
+    const authTabLogin   = document.getElementById('auth-tab-login');
+    const authTabSignup  = document.getElementById('auth-tab-signup');
+    const authUsername    = document.getElementById('auth-username');
+    const authPassword   = document.getElementById('auth-password');
+    const authConfirmPw  = document.getElementById('auth-confirm-password');
+    const authSubmitBtn  = document.getElementById('auth-submit-btn');
+    const authMsg        = document.getElementById('auth-msg');
+    const greetingName   = document.getElementById('greeting-username');
+    const logoutBtn      = document.getElementById('logout-btn');
+
+    let authMode = 'login'; // 'login' or 'signup'
+
+    // Tab switching
+    authTabLogin.addEventListener('click', () => {
+      authMode = 'login';
+      authTabLogin.classList.add('active');
+      authTabSignup.classList.remove('active');
+      authSubmitBtn.textContent = 'Login';
+      authConfirmPw.classList.remove('visible');
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+    });
+    authTabSignup.addEventListener('click', () => {
+      authMode = 'signup';
+      authTabSignup.classList.add('active');
+      authTabLogin.classList.remove('active');
+      authSubmitBtn.textContent = 'Sign Up';
+      authConfirmPw.classList.add('visible');
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+    });
+
+    // Submit handler
+    authSubmitBtn.addEventListener('click', async () => {
+      const username = authUsername.value.trim().toLowerCase();
+      const password = authPassword.value;
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+
+      if (!username || !password) {
+        authMsg.textContent = 'Please enter both username and password.';
+        authMsg.classList.add('error');
+        return;
+      }
+      if (username.length < 3) {
+        authMsg.textContent = 'Username must be at least 3 characters.';
+        authMsg.classList.add('error');
+        return;
+      }
+      if (password.length < 6) {
+        authMsg.textContent = 'Password must be at least 6 characters.';
+        authMsg.classList.add('error');
+        return;
+      }
+
+      const email = `${username}@songscroll.app`;
+      authSubmitBtn.disabled = true;
+
+      if (authMode === 'signup') {
+        const confirmPw = authConfirmPw.value;
+        if (password !== confirmPw) {
+          authMsg.textContent = 'Passwords do not match.';
+          authMsg.classList.add('error');
+          authSubmitBtn.disabled = false;
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { username } }
+        });
+
+        if (error) {
+          let msg = error.message;
+          if (msg.includes('already registered') || msg.includes('already been registered')) {
+            msg = 'This username is already taken. Please choose another.';
+          }
+          authMsg.textContent = msg;
+          authMsg.classList.add('error');
+          authSubmitBtn.disabled = false;
+          return;
+        }
+
+        // Success
+        greetingName.textContent = username;
+        showScreen(uploadScreen);
+      } else {
+        // Login
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+          let msg = error.message;
+          if (msg.includes('Invalid login credentials')) {
+            msg = 'Invalid username or password.';
+          }
+          authMsg.textContent = msg;
+          authMsg.classList.add('error');
+          authSubmitBtn.disabled = false;
+          return;
+        }
+
+        const displayName = data.user?.user_metadata?.username || username;
+        greetingName.textContent = displayName;
+        showScreen(uploadScreen);
+      }
+
+      authSubmitBtn.disabled = false;
+    });
+
+    // Allow Enter key to submit
+    authPassword.addEventListener('keydown', e => { if (e.key === 'Enter' && authMode === 'login') authSubmitBtn.click(); });
+    authConfirmPw.addEventListener('keydown', e => { if (e.key === 'Enter') authSubmitBtn.click(); });
+
+    // Logout handler
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      authUsername.value = '';
+      authPassword.value = '';
+      authConfirmPw.value = '';
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+      showScreen(authScreen);
+    });
+
+    // Session check on page load
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const displayName = session.user?.user_metadata?.username || 'User';
+      greetingName.textContent = displayName;
+      showScreen(uploadScreen);
+    } else {
+      showScreen(authScreen);
     }
 
     // ══════════════════════════════════════════════════
