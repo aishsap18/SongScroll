@@ -722,10 +722,31 @@
       <button class="mode-cta" id="landing-login-btn" style="width: 240px; font-size: 1.1rem; padding: 16px; background: linear-gradient(135deg, var(--accent), var(--accent-hi)); color: #fff; border: none; border-radius: 100px; cursor: pointer; font-weight: 700; box-shadow: 0 8px 32px var(--accent-glow); transition: transform 0.2s;">Get Started →</button>
       
       <div style="margin-top: 60px; font-size: 0.9rem; color: var(--text-dim);">
-        Have questions or feedback? <a href="mailto:support@songscroll.app" style="color: var(--accent-hi); text-decoration: none; font-weight: 500;">Contact Us</a>
+        Have questions or feedback? <a href="#" id="landing-contact-link" style="color: var(--accent-hi); text-decoration: none; font-weight: 500;">Contact Us</a>
       </div>
     </div>
   </div>
+
+  <!-- ─── Contact Screen ─────────────────────────────────── -->
+  <div id="contact-screen" class="screen hidden">
+    <div class="auth-card" style="position: relative; max-width: 480px; margin-top: 60px;">
+      <button id="contact-back-btn" style="position: absolute; top: 20px; left: 20px; background: transparent; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer;">← Back</button>
+      
+      <div class="brand" style="justify-content:center; margin-bottom: 4px; margin-top: 10px;">
+        <div class="brand-icon">✉️</div>
+        <h1 style="font-size: 1.8rem;">Contact Us</h1>
+      </div>
+      <p class="brand-sub" style="margin-bottom: 28px;">We'd love to hear from you</p>
+
+      <input type="text" class="auth-input" id="contact-name" placeholder="Your Name" />
+      <input type="email" class="auth-input" id="contact-email" placeholder="Your Email" />
+      <textarea class="auth-input" id="contact-message" placeholder="Your Message" style="min-height: 120px; resize: vertical; padding-top: 12px; font-family: var(--font);"></textarea>
+
+      <button class="auth-btn" id="contact-submit-btn">Send Message</button>
+      <div class="auth-msg" id="contact-msg"></div>
+    </div>
+  </div>
+
 
   <!-- ─── Auth Screen ────────────────────────────────────── -->
   <div id="auth-screen" class="screen">
@@ -989,6 +1010,7 @@
 
     // ── Screens ───────────────────────────────────────
     const landingScreen  = document.getElementById('landing-screen');
+    const contactScreen  = document.getElementById('contact-screen');
     const authScreen     = document.getElementById('auth-screen');
     const uploadScreen   = document.getElementById('upload-screen');
     const pdfScreen      = document.getElementById('pdf-screen');
@@ -997,12 +1019,56 @@
     const loaderText     = document.getElementById('loader-text');
 
     function showScreen(screen) {
-      [landingScreen, authScreen, uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
+      [landingScreen, contactScreen, authScreen, uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
       screen.classList.remove('hidden');
     }
 
-    // Landing screen CTA
+    // Landing screen CTA and Navigation
     document.getElementById('landing-login-btn').addEventListener('click', () => showScreen(authScreen));
+    document.getElementById('landing-contact-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showScreen(contactScreen);
+    });
+    document.getElementById('contact-back-btn').addEventListener('click', () => {
+      document.getElementById('contact-msg').textContent = '';
+      showScreen(landingScreen);
+    });
+
+    // Contact Form Submit
+    document.getElementById('contact-submit-btn').addEventListener('click', async () => {
+      const name = document.getElementById('contact-name').value.trim();
+      const email = document.getElementById('contact-email').value.trim();
+      const message = document.getElementById('contact-message').value.trim();
+      const msgEl = document.getElementById('contact-msg');
+      const btnEl = document.getElementById('contact-submit-btn');
+
+      if (!name || !email || !message) {
+        msgEl.textContent = 'Please fill out all fields.';
+        msgEl.className = 'auth-msg error';
+        return;
+      }
+
+      msgEl.textContent = 'Sending...';
+      msgEl.className = 'auth-msg';
+      btnEl.disabled = true;
+
+      try {
+        const { error } = await supabase.from('contact_messages').insert([{ name, email, message }]);
+        if (error) throw error;
+        
+        msgEl.textContent = 'Thank you for your message!';
+        msgEl.className = 'auth-msg success';
+        document.getElementById('contact-name').value = '';
+        document.getElementById('contact-email').value = '';
+        document.getElementById('contact-message').value = '';
+      } catch (err) {
+        console.error(err);
+        msgEl.textContent = 'Failed to send message. Please try again.';
+        msgEl.className = 'auth-msg error';
+      } finally {
+        btnEl.disabled = false;
+      }
+    });
 
     // ── Auth UI Elements ─────────────────────────────────
     const authTabLogin   = document.getElementById('auth-tab-login');
