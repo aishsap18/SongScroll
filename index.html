@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SongScroll — PDF Teleprompter</title>
+  <meta name="description" content="Upload your song notes PDF and auto-scroll through them like a professional teleprompter." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ─────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep:    #2d313a;
+      --bg-surface: rgba(255,255,255,0.04);
+      --bg-glass:   rgba(255,255,255,0.06);
+      --border:     rgba(255,255,255,0.08);
+      --border-hi:  rgba(255,255,255,0.15);
+      --text:       #e8e8ed;
+      --text-dim:   #7a7a8e;
+      --accent:     #6c5ce7;
+      --accent-hi:  #a29bfe;
+      --accent-glow: rgba(108,92,231,0.35);
+      --danger:     #fd79a8;
+      --success:    #00cec9;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --font:       'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono:  'Fira Code', monospace;
+      --transition: 0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(108,92,231,0.12), transparent),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(0,206,201,0.08), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Screens ─────────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.4s, transform 0.4s;
+      z-index: 10;
+    }
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      z-index: -1;
+      transform: scale(0.98);
+    }
+
+    /* ── Upload Screen ────────────────────────────────── */
+    #upload-screen {
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .brand-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+    .brand h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent-hi));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-sub {
+      color: var(--text-dim);
+      font-size: 1rem;
+      margin-bottom: 36px;
+    }
+
+    /* Mode Cards */
+    .mode-cards {
+      display: flex;
+      gap: 20px;
+      width: min(860px, 96vw);
+    }
+
+    .mode-card {
+      flex: 1;
+      padding: 36px 28px;
+      border: 2px solid var(--border-hi);
+      border-radius: 20px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(24px);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, var(--accent-glow), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .mode-card:hover { border-color: var(--accent); background: rgba(108,92,231,0.08); }
+    .mode-card:hover::before { opacity: 1; }
+    .mode-card.dragover { border-color: var(--accent-hi); background: rgba(108,92,231,0.12); }
+
+    .mode-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+      position: relative; z-index: 1;
+      animation: float 3s ease-in-out infinite;
+    }
+    .mode-card:nth-child(2) .mode-icon { animation-delay: -1.5s; }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-6px); }
+    }
+
+    .mode-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      position: relative; z-index: 1;
+    }
+    .mode-desc {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-bottom: 24px;
+      position: relative; z-index: 1;
+    }
+    .mode-badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 24px;
+      position: relative; z-index: 1;
+    }
+    .mode-badge {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 100px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border-hi);
+      color: var(--text-dim);
+    }
+    .mode-cta {
+      display: inline-block;
+      padding: 11px 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi));
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative; z-index: 1;
+      transition: var(--transition);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .mode-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 28px var(--accent-glow); }
+
+    .file-hint {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      opacity: 0.5;
+    }
+
+    /* ── Shared Topbar Styles ───────────────────────── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 60;
+      flex-shrink: 0;
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 14px; }
+    .top-bar-right { display: flex; align-items: center; gap: 8px; }
+    .top-bar .file-name {
+      font-size: 0.95rem; font-weight: 600; color: var(--text);
+      max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .top-bar .page-info {
+      font-size: 0.82rem; color: var(--text-dim);
+      background: var(--bg-surface); padding: 4px 12px; border-radius: 6px;
+    }
+
+    .icon-btn {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 1.15rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .icon-btn:hover { background: var(--bg-glass); color: var(--text); border-color: var(--border-hi); }
+    .icon-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .btn {
+      background: var(--accent); color: #fff; border: none;
+      padding: 10px 20px; border-radius: 100px; font-weight: 600;
+      font-size: 0.9rem; cursor: pointer; transition: var(--transition);
+      display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 16px rgba(108,92,231,0.4);
+    }
+    .btn:hover { background: var(--accent-hi); transform: scale(1.03); }
+    .btn.secondary { background: rgba(255,255,255,0.1); box-shadow: none; }
+    .btn.secondary:hover { background: rgba(255,255,255,0.18); }
+    .btn.danger { background: var(--danger); box-shadow: 0 4px 16px rgba(253,121,168,0.35); }
+
+    /* ── PDF Canvas Screen ────────────────────────────── */
+    #pdf-screen { z-index: 50; }
+
+    .scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      scroll-behavior: auto;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .scroll-container::-webkit-scrollbar { width: 6px; }
+    .scroll-container::-webkit-scrollbar-track { background: transparent; }
+    .scroll-container::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+    .scroll-container canvas { display: block; max-width: 95vw; }
+
+    .guide-line {
+      position: fixed; left: 0; right: 0; top: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 5%, var(--accent) 30%, var(--accent) 70%, transparent 95%);
+      opacity: 0; pointer-events: none; z-index: 55; transition: opacity 0.3s;
+    }
+    .guide-line.visible { opacity: 0.5; }
+
+    .settings-panel {
+      position: fixed; top: 64px; right: -380px;
+      width: 340px; max-height: calc(100vh - 80px); overflow-y: auto;
+      background: rgba(18,18,28,0.92); backdrop-filter: blur(28px);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px; z-index: 200;
+      transition: right 0.35s cubic-bezier(.4,0,.2,1);
+      box-shadow: -8px 0 40px rgba(0,0,0,0.4);
+    }
+    .settings-panel.open { right: 16px; }
+    .settings-panel h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .setting-group { margin-bottom: 22px; }
+    .setting-group label {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.85rem; font-weight: 500; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .setting-group label span.val { color: var(--accent-hi); font-weight: 600; font-variant-numeric: tabular-nums; }
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+      background: var(--bg-surface); border: 1px solid var(--border); outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi));
+      cursor: pointer; box-shadow: 0 2px 8px var(--accent-glow); border: 2px solid var(--bg-deep);
+    }
+    .toggle-wrap {
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+    }
+    .toggle-wrap span { font-size: 0.85rem; color: var(--text-dim); font-weight: 500; }
+    .toggle {
+      width: 44px; height: 24px; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      position: relative; cursor: pointer; transition: var(--transition);
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; background: var(--text-dim); border-radius: 50%; transition: var(--transition);
+    }
+    .toggle.on { background: var(--accent); border-color: var(--accent); }
+    .toggle.on::after { left: 23px; background: #fff; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .kbd {
+      display: inline-block; padding: 2px 7px; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: 4px; font-size: 0.72rem;
+      font-family: var(--font); color: var(--text-dim); line-height: 1.5;
+    }
+    .shortcuts-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 0.82rem; }
+    .shortcuts-grid .desc { color: var(--text-dim); }
+
+    .bottom-bar {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 14px 24px; background: rgba(45, 49, 58, 0.95); backdrop-filter: blur(20px);
+      border-top: 1px solid #3c414c; z-index: 60; flex-shrink: 0; position: relative;
+    }
+    .play-btn {
+      width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi)); border: none;
+      border-radius: 50%; color: #fff; font-size: 1.5rem; cursor: pointer;
+      box-shadow: 0 4px 24px var(--accent-glow); transition: var(--transition);
+    }
+    .play-btn:hover { transform: scale(1.08); box-shadow: 0 6px 32px var(--accent-glow); }
+    .play-btn:active { transform: scale(0.96); }
+    .speed-chip {
+      display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 6px 14px;
+      font-size: 0.85rem; color: #aaa;
+    }
+    .speed-chip .speed-val {
+      color: var(--accent-hi); font-weight: 700; font-variant-numeric: tabular-nums;
+      min-width: 32px; text-align: center;
+    }
+    .speed-adj {
+      width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+      color: #aaa; font-size: 1.1rem; cursor: pointer; transition: var(--transition);
+    }
+    .speed-adj:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .mic-btn {
+      width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%;
+      color: #aaa; font-size: 1.25rem; cursor: pointer; transition: var(--transition); position: relative;
+    }
+    .mic-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
+    .mic-btn.active {
+      background: rgba(0,206,201,0.15); color: var(--success); border-color: var(--success);
+      box-shadow: 0 0 16px rgba(0,206,201,0.25);
+    }
+    .mic-btn.active::after {
+      content: ''; position: absolute; inset: -3px; border-radius: 50%;
+      border: 2px solid var(--success); animation: mic-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes mic-pulse {
+      0%,100% { opacity: 0.4; transform: scale(1); }
+      50%     { opacity: 0; transform: scale(1.3); }
+    }
+    .volume-meter {
+      display: none; align-items: center; gap: 6px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 6px 12px;
+      font-size: 0.8rem; color: #aaa;
+    }
+    .volume-meter.visible { display: flex; }
+    .volume-meter-label { font-size: 0.75rem; }
+    .volume-bar-track {
+      width: 80px; height: 6px; background: rgba(255,255,255,0.06);
+      border-radius: 3px; overflow: hidden; position: relative;
+    }
+    .volume-bar-fill {
+      height: 100%; width: 0%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--success), #00b894); transition: width 0.08s;
+    }
+    .volume-threshold-line {
+      position: absolute; top: -1px; bottom: -1px; width: 2px;
+      background: var(--danger); border-radius: 1px; opacity: 0.7;
+    }
+    .progress-bar-wrap {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--bg-surface);
+    }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hi)); width: 0%; transition: width 0.3s; }
+
+    /* Note Follow Mode */
+    .follow-btn {
+      width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-surface); border: 1px solid var(--border); border-radius: 50%;
+      color: var(--text-dim); font-size: 1.25rem; cursor: pointer; transition: var(--transition); position: relative;
+    }
+    .follow-btn:hover { background: var(--bg-glass); color: var(--text); border-color: var(--border-hi); }
+    .follow-btn.active {
+      background: rgba(253,203,110,0.15); color: #fdcb6e; border-color: #fdcb6e;
+      box-shadow: 0 0 16px rgba(253,203,110,0.25);
+    }
+    .follow-btn.active::after {
+      content: ''; position: absolute; inset: -3px; border-radius: 50%;
+      border: 2px solid #fdcb6e; animation: follow-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes follow-pulse {
+      0%,100% { opacity: 0.4; transform: scale(1); }
+      50%     { opacity: 0; transform: scale(1.3); }
+    }
+    .follow-status {
+      display: none; align-items: center; gap: 6px; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: 10px; padding: 6px 14px;
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+    .follow-status.visible { display: flex; }
+    .follow-status .group-val, .follow-status .note-val {
+      color: #fdcb6e; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .group-highlight {
+      position: absolute; left: 0; right: 0;
+      background: rgba(253,203,110,0.15);
+      border-top: 2px solid rgba(253,203,110,0.4);
+      border-bottom: 2px solid rgba(253,203,110,0.4);
+      pointer-events: none; z-index: 10;
+      transition: top 0.3s ease, height 0.3s ease;
+    }
+
+    body.is-fullscreen .top-bar,
+    body.is-fullscreen .bottom-bar { opacity: 0; transition: opacity 0.3s; }
+    body.is-fullscreen:hover .top-bar,
+    body.is-fullscreen:hover .bottom-bar { opacity: 1; }
+
+    /* ── Editor Screen ───────────────────────────────── */
+    #editor-screen { z-index: 90; }
+    .editor-topbar {
+      height: 70px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 30px; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .editor-topbar h2 { font-size: 1.2rem; font-weight: 600; }
+    .editor-container { flex: 1; padding: 20px; display: flex; flex-direction: column; overflow: hidden; }
+    .editor-hint { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 10px; line-height: 1.5; }
+    #text-editor {
+      flex: 1; width: 100%; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); padding: 20px; font-family: var(--font-mono);
+      font-size: 1.05rem; line-height: 1.6; resize: none; outline: none; transition: var(--transition);
+    }
+    #text-editor:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
+
+    /* ── Text Play Screen ────────────────────────────── */
+    #text-play-screen { z-index: 80; background: #2d313a; }
+    .play-toolbar {
+      height: 72px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: rgba(45, 49, 58, 0.95); backdrop-filter: blur(20px);
+      border-bottom: 1px solid #3c414c; flex-shrink: 0;
+    }
+    .play-controls { display: flex; gap: 14px; align-items: center; }
+    .settings-group {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.05); padding: 8px 14px; border-radius: 100px;
+    }
+    .settings-group label { font-size: 0.83rem; color: var(--text-dim); }
+    .settings-group input[type=range] { width: 90px; accent-color: var(--accent); }
+
+    .teleprompter-container {
+      flex: 1; overflow-y: auto; padding-top: 180px; padding-bottom: 70vh;
+      padding-left: 10%; padding-right: 10%; scroll-behavior: auto; position: relative;
+    }
+    .focus-line-tp {
+      position: fixed; top: 35vh; left: 0; width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(108,92,231,0.5), transparent);
+      opacity: 0.7; z-index: 0; pointer-events: none;
+    }
+
+    .tp-line {
+      font-family: var(--font-mono); font-size: 1.3em; line-height: 1.6;
+      color: rgba(255,255,255,0.35); margin-bottom: 10px;
+      transition: color 0.3s, transform 0.3s; position: relative; z-index: 1; 
+      text-align: left; white-space: pre-wrap;
+    }
+    .tp-line.trackable { color: rgba(255,255,255,0.85); font-weight: 700; font-size: 1.3em; }
+    .tp-line.active { color: #fff; transform: scale(1.05); text-shadow: 0 0 16px rgba(255,255,255,0.25); }
+    .tp-line.past { color: rgba(255,255,255,0.18); }
+    .tp-badge {
+      font-size: 13px; font-family: var(--font); font-weight: 500;
+      background: rgba(255,255,255,0.08); color: #aaa; padding: 4px 8px; border-radius: 6px;
+      position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+      margin-left: 16px; white-space: nowrap;
+    }
+    .tp-badge .heard { color: var(--accent-hi); font-weight: 700; }
+
+    #tp-container.editing-mode {
+      outline: 2px dashed var(--accent);
+      background: #252830;
+      cursor: text !important;
+    }
+    #tp-container.editing-mode .tp-line {
+      cursor: text !important;
+      user-select: text;
+    }
+    #tp-container.editing-mode .tp-badge {
+      display: none !important;
+    }
+
+    .tp-note { transition: color 0.15s, text-shadow 0.15s; border-radius: 3px; padding: 0 2px; }
+    .tp-note.played { color: var(--accent-hi); text-shadow: 0 0 10px rgba(162,155,254,0.4); }
+    /* shade-dark = black-shaded in PDF */
+    .tp-note.shade-dark { background: #111216; color: #fff; border-radius: 3px; }
+    /* shade-grey = grey-shaded in PDF */
+    .tp-note.shade-grey { background: #7a7d88; color: #fff; border-radius: 3px; }
+
+    .status-panel {
+      display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06);
+      padding: 8px 14px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); transition: 0.1s; }
+    .status-dot.listening { background: var(--success); box-shadow: 0 0 10px var(--success); }
+    .status-text { font-size: 0.88rem; font-weight: 500; font-family: var(--font-mono); color: #ccc; }
+
+    /* ── Loader ───────────────────────────────────── */
+    .loader {
+      display: none; flex-direction: column; align-items: center; gap: 16px;
+      position: fixed; inset: 0; z-index: 300; background: rgba(10,10,15,0.85); justify-content: center;
+    }
+    .loader.active { display: flex; }
+    .spinner {
+      width: 48px; height: 48px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader p { color: var(--text-dim); font-size: 0.95rem; }
+
+    @media (max-width: 600px) {
+      .mode-cards { flex-direction: column; }
+      .brand h1 { font-size: 1.5rem; }
+      .settings-panel { width: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Upload / Mode Selection Screen ───────────────── -->
+  <div id="upload-screen" class="screen">
+    <div class="brand">
+      <div class="brand-icon">🎵</div>
+      <h1>SongScroll</h1>
+    </div>
+    <p class="brand-sub">Your PDF teleprompter for live performances</p>
+
+    <div class="mode-cards">
+      <!-- PDF Canvas Mode -->
+      <div class="mode-card" id="mode-pdf-card">
+        <span class="mode-icon">📄</span>
+        <div class="mode-title">PDF View Mode</div>
+        <div class="mode-desc">Renders your PDF exactly as it looks. Scroll speed adapts to your playing volume with pitch compensation.</div>
+        <div class="mode-badge-list">
+          <span class="mode-badge">Visual PDF</span>
+          <span class="mode-badge">Listen Mode</span>
+          <span class="mode-badge">Pitch Boost</span>
+          <span class="mode-badge">Note Follow</span>
+        </div>
+        <button class="mode-cta" id="pdf-browse-btn">Browse PDF</button>
+        <input type="file" id="pdf-file-input" accept="application/pdf" hidden />
+      </div>
+
+      <!-- Text Editor Mode -->
+      <div class="mode-card" id="mode-text-card">
+        <span class="mode-icon">✏️</span>
+        <div class="mode-title">Text Editor Mode</div>
+        <div class="mode-desc">Extracts text from your PDF into an editable view. Tracks notes line-by-line using pluck detection.</div>
+        <div class="mode-badge-list">
+          <span class="mode-badge">Editable Text</span>
+          <span class="mode-badge">Note Count</span>
+          <span class="mode-badge">Pluck Detection</span>
+          <span class="mode-badge">Click to Toggle</span>
+        </div>
+        <button class="mode-cta" id="text-browse-btn">Browse PDF</button>
+        <input type="file" id="text-file-input" accept="application/pdf" hidden />
+      </div>
+    </div>
+    <p class="file-hint">Supports PDF files · Rendered locally in your browser</p>
+  </div>
+
+  <!-- ─── PDF Canvas Screen ───────────────────────────── -->
+  <div id="pdf-screen" class="screen hidden">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="icon-btn" id="pdf-btn-back" title="Back to mode selection">↩</button>
+        <span class="file-name" id="pdf-file-name">document.pdf</span>
+        <span class="page-info" id="pdf-page-info">0 pages</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="icon-btn" id="pdf-btn-guide" title="Toggle guide line">―</button>
+        <button class="icon-btn" id="pdf-btn-fullscreen" title="Fullscreen (F)">⛶</button>
+        <button class="icon-btn" id="pdf-btn-settings" title="Settings (S)">⚙</button>
+      </div>
+    </div>
+
+    <div class="guide-line" id="pdf-guide-line"></div>
+    <div class="scroll-container" id="pdf-scroll-container" style="position:relative;"></div>
+
+    <div class="bottom-bar">
+      <button class="speed-adj" id="pdf-btn-slower" title="Slower (←)">−</button>
+      <div class="speed-chip">
+        <span>Speed</span>
+        <span class="speed-val" id="pdf-speed-display">0.3</span>
+        <span>px/frame</span>
+      </div>
+      <button class="speed-adj" id="pdf-btn-faster" title="Faster (→)">+</button>
+      <button class="play-btn" id="pdf-btn-play" title="Play / Pause (Space)">▶</button>
+      <button class="mic-btn" id="pdf-btn-mic" title="Listen Mode (M)">🎤</button>
+      <div class="volume-meter" id="pdf-volume-meter">
+        <span class="volume-meter-label">Vol</span>
+        <div class="volume-bar-track">
+          <div class="volume-bar-fill" id="pdf-volume-bar-fill"></div>
+          <div class="volume-threshold-line" id="pdf-volume-threshold-line" style="left:20%"></div>
+        </div>
+      </div>
+      <button class="follow-btn" id="pdf-btn-follow" title="Note Follow Mode (N)">🎼</button>
+      <div class="follow-status" id="pdf-follow-status">
+        <span>Group</span><span class="group-val" id="pdf-follow-group">0/0</span>
+        <span>·</span><span>Note</span><span class="note-val" id="pdf-follow-note">0/0</span>
+      </div>
+      <button class="icon-btn" id="pdf-btn-rewind" title="Scroll to top (Home)">⏮</button>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="pdf-progress-bar"></div></div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="pdf-settings-panel">
+      <h3>⚙ Scroll Settings</h3>
+      <div class="setting-group">
+        <label>Scroll Speed <span class="val" id="pdf-lbl-speed">0.3</span></label>
+        <input type="range" id="pdf-range-speed" min="0.1" max="5" step="0.1" value="0.3" />
+      </div>
+      <div class="setting-group">
+        <label>Start Delay (sec) <span class="val" id="pdf-lbl-delay">3</span></label>
+        <input type="range" id="pdf-range-delay" min="0" max="15" step="1" value="3" />
+      </div>
+      <div class="setting-group">
+        <label>Zoom <span class="val" id="pdf-lbl-zoom">100%</span></label>
+        <input type="range" id="pdf-range-zoom" min="50" max="200" step="10" value="100" />
+      </div>
+      <hr class="divider" />
+      <div class="toggle-wrap"><span>Guide Line</span><div class="toggle" id="pdf-toggle-guide"></div></div>
+      <div class="toggle-wrap"><span>Loop (restart at end)</span><div class="toggle" id="pdf-toggle-loop"></div></div>
+      <div class="toggle-wrap"><span>Smooth Scroll</span><div class="toggle on" id="pdf-toggle-smooth"></div></div>
+      <hr class="divider" />
+      <h3>🎤 Listen Mode</h3>
+      <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:14px;">Scrolls based on your playing — louder = faster. Pitch-compensated for ukulele.</p>
+      <div class="setting-group">
+        <label>Noise Threshold <span class="val" id="pdf-lbl-threshold">20%</span></label>
+        <input type="range" id="pdf-range-threshold" min="5" max="60" step="1" value="20" />
+      </div>
+      <div class="setting-group">
+        <label>Sensitivity <span class="val" id="pdf-lbl-sensitivity">6</span></label>
+        <input type="range" id="pdf-range-sensitivity" min="1" max="10" step="0.5" value="6" />
+      </div>
+      <div class="setting-group">
+        <label>Max Listen Speed <span class="val" id="pdf-lbl-max-listen-speed">2.0</span></label>
+        <input type="range" id="pdf-range-max-listen-speed" min="0.3" max="10" step="0.1" value="2" />
+      </div>
+      <hr class="divider" />
+      <h3>🎼 Note Follow Mode</h3>
+      <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:14px;">Extracts notes from your PDF and scrolls line-by-line as you play them.</p>
+      <div class="setting-group">
+        <label>Onset Threshold <span class="val" id="pdf-lbl-onset-threshold">25%</span></label>
+        <input type="range" id="pdf-range-onset-threshold" min="5" max="60" step="1" value="25" />
+      </div>
+      <div class="setting-group">
+        <label>Onset Cooldown (ms) <span class="val" id="pdf-lbl-onset-cooldown">150</span></label>
+        <input type="range" id="pdf-range-onset-cooldown" min="50" max="500" step="10" value="150" />
+      </div>
+      <div class="setting-group">
+        <label>Strums per Note <span class="val" id="pdf-lbl-strums-per-note">1</span></label>
+        <input type="range" id="pdf-range-strums-per-note" min="1" max="8" step="1" value="1" />
+      </div>
+      <div class="setting-group">
+        <label>Scroll Speed (ms) <span class="val" id="pdf-lbl-follow-scroll-speed">400</span></label>
+        <input type="range" id="pdf-range-follow-scroll-speed" min="100" max="1500" step="50" value="400" />
+      </div>
+      <hr class="divider" />
+      <h3>⌨ Keyboard Shortcuts</h3>
+      <div class="shortcuts-grid">
+        <span><span class="kbd">Space</span></span><span class="desc">Play / Pause</span>
+        <span><span class="kbd">M</span></span><span class="desc">Listen mode</span>
+        <span><span class="kbd">← →</span></span><span class="desc">Adjust speed</span>
+        <span><span class="kbd">↑ ↓</span></span><span class="desc">Manual scroll</span>
+        <span><span class="kbd">Home</span></span><span class="desc">Scroll to top</span>
+        <span><span class="kbd">F</span></span><span class="desc">Fullscreen</span>
+        <span><span class="kbd">N</span></span><span class="desc">Note follow mode</span>
+        <span><span class="kbd">S</span></span><span class="desc">Settings</span>
+        <span><span class="kbd">G</span></span><span class="desc">Guide line</span>
+        <span><span class="kbd">Esc</span></span><span class="desc">Exit / Close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Text Play Screen ────────────────────────────── -->
+  <textarea id="text-editor" style="display: none;"></textarea>
+  
+  <div id="text-play-screen" class="screen hidden">
+    <div class="play-toolbar">
+      <button class="btn secondary" id="tp-btn-back">← Back</button>
+      <div class="play-controls">
+        <div class="status-panel">
+          <div class="status-dot" id="tp-status-dot"></div>
+          <div class="status-text" id="tp-status-text">Paused</div>
+        </div>
+        <div class="status-panel" style="min-width:50px;justify-content:center;">
+          <strong id="tp-pitch-display" style="font-family:var(--font-mono);color:var(--accent-hi);font-size:1.05rem;">--</strong>
+        </div>
+        <!-- flux meter -->
+        <div style="width:90px;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;position:relative;">
+          <div id="tp-meter-fill" style="width:0%;height:100%;background:var(--success);transition:width 0.1s;"></div>
+          <div id="tp-meter-threshold" style="position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:2;left:25%;"></div>
+        </div>
+        <button class="btn" id="tp-btn-toggle-play" style="min-width:160px;justify-content:center;">Start Listening</button>
+        <button class="btn secondary" id="tp-btn-restart" title="Start Over from line 1">⟳ Start Over</button>
+        <button class="btn" id="tp-btn-edit-overlay" style="background: rgba(108,92,231,0.2); border-color: var(--accent); color: var(--accent-hi);">✏️ Edit</button>
+        <button class="icon-btn" id="tp-btn-settings" title="Settings (S)">⚙</button>
+      </div>
+    </div>
+    <div class="focus-line-tp"></div>
+    <div class="teleprompter-container" id="tp-container"></div>
+    
+    <div class="settings-panel" id="tp-settings-panel">
+      <h3>⚙ Teleprompter Settings</h3>
+      <div class="setting-group">
+        <label>Scroll Speed <span class="val" id="tp-lbl-speed">1.5</span></label>
+        <input type="range" id="tp-range-speed" min="0.5" max="4.0" step="0.1" value="1.5" style="width: 100%; margin-top: 10px;" />
+      </div>
+      <div class="setting-group">
+        <label>Listen Sensitivity <span class="val" id="tp-lbl-sens">25</span></label>
+        <input type="range" id="tp-range-sens" min="5" max="100" step="1" value="25" style="width: 100%; margin-top: 10px;" />
+      </div>
+      <div class="setting-group">
+        <label>Text Size <span class="val" id="tp-lbl-size">1.0x</span></label>
+        <input type="range" id="tp-range-size" min="0.8" max="4.0" step="0.1" value="1.0" style="width: 100%; margin-top: 10px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Loader ─────────────────────────────────────── -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p id="loader-text">Loading…</p>
+  </div>
+
+  <!-- ─── Main Script ─────────────────────────────────── -->
+  <script type="module">
+    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+    // ── Screens ───────────────────────────────────────
+    const uploadScreen   = document.getElementById('upload-screen');
+    const pdfScreen      = document.getElementById('pdf-screen');
+    const textPlayScreen = document.getElementById('text-play-screen');
+    const loader         = document.getElementById('loader');
+    const loaderText     = document.getElementById('loader-text');
+
+    function showScreen(screen) {
+      [uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
+      screen.classList.remove('hidden');
+    }
+
+    // ══════════════════════════════════════════════════
+    // SECTION A: PDF CANVAS MODE
+    // ══════════════════════════════════════════════════
+
+    const pdfScrollContainer = document.getElementById('pdf-scroll-container');
+    const pdfFileNameDisplay = document.getElementById('pdf-file-name');
+    const pdfPageInfo        = document.getElementById('pdf-page-info');
+    const pdfProgressBar     = document.getElementById('pdf-progress-bar');
+    const pdfGuideLine       = document.getElementById('pdf-guide-line');
+    const pdfSettingsPanel   = document.getElementById('pdf-settings-panel');
+
+    const pdfBtnPlay       = document.getElementById('pdf-btn-play');
+    const pdfBtnFaster     = document.getElementById('pdf-btn-faster');
+    const pdfBtnSlower     = document.getElementById('pdf-btn-slower');
+    const pdfBtnRewind     = document.getElementById('pdf-btn-rewind');
+    const pdfBtnBack       = document.getElementById('pdf-btn-back');
+    const pdfBtnGuide      = document.getElementById('pdf-btn-guide');
+    const pdfBtnFullscreen = document.getElementById('pdf-btn-fullscreen');
+    const pdfBtnSettings   = document.getElementById('pdf-btn-settings');
+    const pdfBtnMic        = document.getElementById('pdf-btn-mic');
+    const pdfBtnFollow     = document.getElementById('pdf-btn-follow');
+
+    const pdfRangeSpeed = document.getElementById('pdf-range-speed');
+    const pdfRangeDelay = document.getElementById('pdf-range-delay');
+    const pdfRangeZoom  = document.getElementById('pdf-range-zoom');
+    const pdfLblSpeed   = document.getElementById('pdf-lbl-speed');
+    const pdfLblDelay   = document.getElementById('pdf-lbl-delay');
+    const pdfLblZoom    = document.getElementById('pdf-lbl-zoom');
+    const pdfSpeedDisp  = document.getElementById('pdf-speed-display');
+
+    const pdfToggleGuide  = document.getElementById('pdf-toggle-guide');
+    const pdfToggleLoop   = document.getElementById('pdf-toggle-loop');
+    const pdfToggleSmooth = document.getElementById('pdf-toggle-smooth');
+
+    const pdfVolumeMeter     = document.getElementById('pdf-volume-meter');
+    const pdfVolumeBarFill   = document.getElementById('pdf-volume-bar-fill');
+    const pdfVolumeThreshLine = document.getElementById('pdf-volume-threshold-line');
+    const pdfRangeThreshold  = document.getElementById('pdf-range-threshold');
+    const pdfRangeSensitivity = document.getElementById('pdf-range-sensitivity');
+    const pdfRangeMaxListenSpd = document.getElementById('pdf-range-max-listen-speed');
+    const pdfLblThreshold    = document.getElementById('pdf-lbl-threshold');
+    const pdfLblSensitivity  = document.getElementById('pdf-lbl-sensitivity');
+    const pdfLblMaxListenSpd = document.getElementById('pdf-lbl-max-listen-speed');
+
+    const pdfFollowStatusEl = document.getElementById('pdf-follow-status');
+    const pdfFollowGroupEl  = document.getElementById('pdf-follow-group');
+    const pdfFollowNoteEl   = document.getElementById('pdf-follow-note');
+    const pdfRangeOnsetThreshold  = document.getElementById('pdf-range-onset-threshold');
+    const pdfRangeOnsetCooldown   = document.getElementById('pdf-range-onset-cooldown');
+    const pdfRangeStrumsPerNote   = document.getElementById('pdf-range-strums-per-note');
+    const pdfRangeFollowScrollSpd = document.getElementById('pdf-range-follow-scroll-speed');
+    const pdfLblOnsetThreshold    = document.getElementById('pdf-lbl-onset-threshold');
+    const pdfLblOnsetCooldown     = document.getElementById('pdf-lbl-onset-cooldown');
+    const pdfLblStrumsPerNote     = document.getElementById('pdf-lbl-strums-per-note');
+    const pdfLblFollowScrollSpeed = document.getElementById('pdf-lbl-follow-scroll-speed');
+
+    // PDF State
+    let pdfScrollSpeed = 0.3, pdfStartDelay = 3, pdfZoomLevel = 100;
+    let pdfIsPlaying = false, pdfIsLooping = false, pdfIsSmoothScroll = true, pdfShowGuide = false;
+    let pdfAnimFrameId = null, pdfDelayTimeout = null, pdfScrollAccum = 0;
+    let pdfCurrentFile = null;
+
+    // Listen Mode State
+    let pdfListenMode = false, pdfAudioCtx = null, pdfMicStream = null, pdfAnalyser = null;
+    let pdfListenAnimId = null, pdfNoiseThreshold = 20, pdfSensitivity = 6, pdfMaxListenSpeed = 2.0;
+    let pdfListenAccum = 0, pdfSmoothedVolume = 0;
+
+    // Note Follow State
+    let pdfFollowMode = false, pdfFollowGroups = [], pdfCurrentGroupIdx = 0, pdfCurrentNoteCount = 0;
+    let pdfOnsetThreshold = 25, pdfOnsetCooldown = 150, pdfStrumsPerNote = 1, pdfFollowScrollSpeed = 400;
+    let pdfFollowAudioCtx = null, pdfFollowMicStream = null, pdfFollowAnalyser = null, pdfFollowAnimId = null;
+    let pdfLastOnsetTime = 0, pdfWasAboveThreshold = false, pdfGroupHighlightEl = null, pdfCanvasOffsets = [];
+
+    // ── Upload: PDF Mode
+    const pdfBrowseBtn = document.getElementById('pdf-browse-btn');
+    const pdfFileInput = document.getElementById('pdf-file-input');
+    const modePdfCard  = document.getElementById('mode-pdf-card');
+
+    pdfBrowseBtn.addEventListener('click', e => { e.stopPropagation(); pdfFileInput.click(); });
+    pdfFileInput.addEventListener('change', e => { if (e.target.files[0]) handlePdfFile(e.target.files[0]); });
+    modePdfCard.addEventListener('dragover', e => { e.preventDefault(); modePdfCard.classList.add('dragover'); });
+    modePdfCard.addEventListener('dragleave', () => modePdfCard.classList.remove('dragover'));
+    modePdfCard.addEventListener('drop', e => {
+      e.preventDefault(); modePdfCard.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') handlePdfFile(file);
+    });
+
+    function trimCanvas(srcCanvas) {
+      const ctx = srcCanvas.getContext('2d');
+      const w = srcCanvas.width, h = srcCanvas.height;
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      const threshold = 245;
+      let top = h, bottom = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (data[i] < threshold || data[i+1] < threshold || data[i+2] < threshold) {
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+          }
+        }
+      }
+      if (top >= bottom) { const c = document.createElement('canvas'); c.width = w; c.height = 1; return c; }
+      const pad = 8;
+      top = Math.max(0, top - pad); bottom = Math.min(h - 1, bottom + pad);
+      const cropH = bottom - top + 1;
+      const cropped = document.createElement('canvas');
+      cropped.width = w; cropped.height = cropH;
+      const cCtx = cropped.getContext('2d');
+      cCtx.fillStyle = '#ffffff'; cCtx.fillRect(0, 0, w, cropH);
+      cCtx.drawImage(srcCanvas, 0, top, w, cropH, 0, 0, w, cropH);
+      return cropped;
+    }
+
+    async function handlePdfFile(file) {
+      pdfCurrentFile = file;
+      loader.classList.add('active'); loaderText.textContent = 'Rendering PDF…';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+      pdfScrollContainer.innerHTML = '';
+      const dpr = window.devicePixelRatio || 1;
+      const scale = (pdfZoomLevel / 100) * dpr;
+      for (let i = 1; i <= numPages; i++) {
+        loaderText.textContent = `Rendering page ${i} / ${numPages}…`;
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale });
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = viewport.width; tmpCanvas.height = viewport.height;
+        const ctx = tmpCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const cropped = trimCanvas(tmpCanvas);
+        cropped.style.width = `${cropped.width / dpr}px`;
+        cropped.style.height = `${cropped.height / dpr}px`;
+        pdfScrollContainer.appendChild(cropped);
+      }
+      pdfFileNameDisplay.textContent = file.name;
+      pdfPageInfo.textContent = `${numPages} page${numPages > 1 ? 's' : ''}`;
+      loader.classList.remove('active');
+      showScreen(pdfScreen);
+      pdfScrollContainer.scrollTop = 0;
+      updatePdfProgress();
+    }
+
+    async function reRenderPdfZoom() {
+      if (!pdfCurrentFile) return;
+      const scrollRatio = pdfScrollContainer.scrollTop / (pdfScrollContainer.scrollHeight - pdfScrollContainer.clientHeight || 1);
+      loader.classList.add('active');
+      const arrayBuffer = await pdfCurrentFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+      pdfScrollContainer.innerHTML = '';
+      const dpr = window.devicePixelRatio || 1;
+      const scale = (pdfZoomLevel / 100) * dpr;
+      for (let i = 1; i <= numPages; i++) {
+        loaderText.textContent = `Re-rendering page ${i} / ${numPages}…`;
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale });
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = viewport.width; tmpCanvas.height = viewport.height;
+        const ctx = tmpCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const cropped = trimCanvas(tmpCanvas);
+        cropped.style.width = `${cropped.width / dpr}px`;
+        cropped.style.height = `${cropped.height / dpr}px`;
+        pdfScrollContainer.appendChild(cropped);
+      }
+      loader.classList.remove('active');
+      pdfScrollContainer.scrollTop = scrollRatio * (pdfScrollContainer.scrollHeight - pdfScrollContainer.clientHeight);
+    }
+
+    // Play/Pause
+    function startPdfScrolling() {
+      if (pdfFollowMode) stopPdfFollowMode();
+      pdfIsPlaying = true; pdfBtnPlay.textContent = '⏸'; pdfBtnPlay.title = 'Pause (Space)';
+      cancelAnimationFrame(pdfAnimFrameId);
+      let lastTime = null; pdfScrollAccum = 0;
+      function step(ts) {
+        if (!pdfIsPlaying) return;
+        if (lastTime !== null) {
+          const delta = (ts - lastTime) / 16.667;
+          pdfScrollAccum += pdfScrollSpeed * delta;
+          const pixels = Math.floor(pdfScrollAccum);
+          if (pixels >= 1) { pdfScrollContainer.scrollTop += pixels; pdfScrollAccum -= pixels; }
+        }
+        lastTime = ts; updatePdfProgress();
+        const atBottom = pdfScrollContainer.scrollTop + pdfScrollContainer.clientHeight >= pdfScrollContainer.scrollHeight - 2;
+        if (atBottom) { if (pdfIsLooping) pdfScrollContainer.scrollTop = 0; else { stopPdfScrolling(); return; } }
+        pdfAnimFrameId = requestAnimationFrame(step);
+      }
+      pdfAnimFrameId = requestAnimationFrame(step);
+    }
+    function stopPdfScrolling() {
+      pdfIsPlaying = false; pdfBtnPlay.textContent = '▶'; pdfBtnPlay.title = 'Play (Space)';
+      cancelAnimationFrame(pdfAnimFrameId);
+      if (pdfDelayTimeout) { clearTimeout(pdfDelayTimeout); pdfDelayTimeout = null; }
+    }
+    function togglePdfPlay() {
+      if (pdfIsPlaying) { stopPdfScrolling(); } else {
+        if (pdfStartDelay > 0) { pdfBtnPlay.textContent = '⏳'; pdfDelayTimeout = setTimeout(startPdfScrolling, pdfStartDelay * 1000); }
+        else startPdfScrolling();
+      }
+    }
+    pdfBtnPlay.addEventListener('click', togglePdfPlay);
+
+    function setPdfSpeed(val) {
+      pdfScrollSpeed = Math.round(Math.max(0.1, Math.min(5, val)) * 10) / 10;
+      pdfRangeSpeed.value = pdfScrollSpeed; pdfLblSpeed.textContent = pdfScrollSpeed.toFixed(1); pdfSpeedDisp.textContent = pdfScrollSpeed.toFixed(1);
+    }
+    pdfBtnFaster.addEventListener('click', () => setPdfSpeed(pdfScrollSpeed + 0.1));
+    pdfBtnSlower.addEventListener('click', () => setPdfSpeed(pdfScrollSpeed - 0.1));
+    pdfRangeSpeed.addEventListener('input', () => setPdfSpeed(parseFloat(pdfRangeSpeed.value)));
+    pdfRangeDelay.addEventListener('input', () => { pdfStartDelay = parseInt(pdfRangeDelay.value); pdfLblDelay.textContent = pdfStartDelay; });
+    pdfRangeZoom.addEventListener('input', () => { pdfZoomLevel = parseInt(pdfRangeZoom.value); pdfLblZoom.textContent = pdfZoomLevel + '%'; });
+    pdfRangeZoom.addEventListener('change', () => reRenderPdfZoom());
+
+    pdfToggleGuide.addEventListener('click', () => {
+      pdfShowGuide = !pdfShowGuide;
+      pdfToggleGuide.classList.toggle('on', pdfShowGuide);
+      pdfGuideLine.classList.toggle('visible', pdfShowGuide);
+      pdfBtnGuide.classList.toggle('active', pdfShowGuide);
+    });
+    pdfBtnGuide.addEventListener('click', () => pdfToggleGuide.click());
+    pdfToggleLoop.addEventListener('click', () => { pdfIsLooping = !pdfIsLooping; pdfToggleLoop.classList.toggle('on', pdfIsLooping); });
+    pdfToggleSmooth.addEventListener('click', () => { pdfIsSmoothScroll = !pdfIsSmoothScroll; pdfToggleSmooth.classList.toggle('on', pdfIsSmoothScroll); });
+
+    function updatePdfProgress() {
+      const max = pdfScrollContainer.scrollHeight - pdfScrollContainer.clientHeight;
+      const pct = max > 0 ? (pdfScrollContainer.scrollTop / max) * 100 : 0;
+      pdfProgressBar.style.width = pct + '%';
+    }
+    pdfScrollContainer.addEventListener('scroll', updatePdfProgress);
+
+    pdfBtnRewind.addEventListener('click', () => { stopPdfScrolling(); pdfScrollContainer.scrollTop = 0; updatePdfProgress(); });
+    pdfBtnBack.addEventListener('click', () => {
+      stopPdfScrolling(); stopPdfListenMode(); stopPdfFollowMode();
+      pdfScrollContainer.innerHTML = ''; pdfCurrentFile = null; showScreen(uploadScreen);
+    });
+
+    // Fullscreen
+    pdfBtnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); document.body.classList.add('is-fullscreen'); }
+      else { document.exitFullscreen(); document.body.classList.remove('is-fullscreen'); }
+    });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen'); });
+
+    // Settings
+    pdfBtnSettings.addEventListener('click', () => { pdfSettingsPanel.classList.toggle('open'); pdfBtnSettings.classList.toggle('active'); });
+    document.addEventListener('click', e => {
+      if (pdfSettingsPanel.classList.contains('open') && !pdfSettingsPanel.contains(e.target) && e.target !== pdfBtnSettings && !pdfBtnSettings.contains(e.target)) {
+        pdfSettingsPanel.classList.remove('open'); pdfBtnSettings.classList.remove('active');
+      }
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', e => {
+      if (!pdfScreen.classList.contains('hidden')) {
+        switch (e.code) {
+          case 'Space': e.preventDefault(); togglePdfPlay(); break;
+          case 'ArrowRight': e.preventDefault(); setPdfSpeed(pdfScrollSpeed + 0.1); break;
+          case 'ArrowLeft': e.preventDefault(); setPdfSpeed(pdfScrollSpeed - 0.1); break;
+          case 'ArrowUp': e.preventDefault(); pdfScrollContainer.scrollTop -= 80; updatePdfProgress(); break;
+          case 'ArrowDown': e.preventDefault(); pdfScrollContainer.scrollTop += 80; updatePdfProgress(); break;
+          case 'Home': e.preventDefault(); stopPdfScrolling(); pdfScrollContainer.scrollTop = 0; updatePdfProgress(); break;
+          case 'KeyF': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); pdfBtnFullscreen.click(); } break;
+          case 'KeyM': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); togglePdfListenMode(); } break;
+          case 'KeyN': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); togglePdfFollowMode(); } break;
+          case 'KeyS': if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); pdfBtnSettings.click(); } break;
+          case 'KeyG': e.preventDefault(); pdfToggleGuide.click(); break;
+          case 'Escape': pdfSettingsPanel.classList.remove('open'); pdfBtnSettings.classList.remove('active'); break;
+        }
+      }
+    });
+
+    pdfScrollContainer.addEventListener('wheel', () => { if (pdfIsPlaying) stopPdfScrolling(); });
+    pdfScrollContainer.addEventListener('touchstart', () => { if (pdfIsPlaying) stopPdfScrolling(); }, { passive: true });
+
+    // ── Pitch Detection (shared utility) ─────────────
+    function autoCorrelate(buf, sampleRate) {
+      let size = buf.length, rms = 0;
+      for (let i = 0; i < size; i++) rms += buf[i] * buf[i];
+      rms = Math.sqrt(rms / size);
+      if (rms < 0.01) return -1;
+      let r1 = 0, r2 = size - 1, thres = 0.2;
+      for (let i = 0; i < size / 2; i++) { if (Math.abs(buf[i]) < thres) { r1 = i; break; } }
+      for (let i = 1; i < size / 2; i++) { if (Math.abs(buf[size - i]) < thres) { r2 = size - i; break; } }
+      buf = buf.slice(r1, r2); size = buf.length;
+      let c = new Array(size).fill(0);
+      for (let i = 0; i < size; i++) for (let j = 0; j < size - i; j++) c[i] += buf[j] * buf[j + i];
+      let d = 0; while (c[d] > c[d + 1]) d++;
+      let maxval = -1, maxpos = -1;
+      for (let i = d; i < size; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+      let T0 = maxpos;
+      let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+      const a = (x1 + x3 - 2 * x2) / 2, b = (x3 - x1) / 2;
+      if (a) T0 = T0 - b / (2 * a);
+      return sampleRate / T0;
+    }
+
+    // ── PDF Listen Mode ───────────────────────────────
+    pdfRangeThreshold.addEventListener('input', () => { pdfNoiseThreshold = parseInt(pdfRangeThreshold.value); pdfLblThreshold.textContent = pdfNoiseThreshold + '%'; pdfVolumeThreshLine.style.left = pdfNoiseThreshold + '%'; });
+    pdfRangeSensitivity.addEventListener('input', () => { pdfSensitivity = parseFloat(pdfRangeSensitivity.value); pdfLblSensitivity.textContent = pdfSensitivity; });
+    pdfRangeMaxListenSpd.addEventListener('input', () => { pdfMaxListenSpeed = parseFloat(pdfRangeMaxListenSpd.value); pdfLblMaxListenSpd.textContent = pdfMaxListenSpeed.toFixed(1); });
+
+    pdfBtnMic.addEventListener('click', togglePdfListenMode);
+    async function togglePdfListenMode() { if (pdfListenMode) stopPdfListenMode(); else await startPdfListenMode(); }
+
+    async function startPdfListenMode() {
+      if (pdfIsPlaying) stopPdfScrolling();
+      if (pdfFollowMode) stopPdfFollowMode();
+      try { pdfMicStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (err) { alert('Microphone access is required for Listen Mode.'); return; }
+      pdfAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = pdfAudioCtx.createMediaStreamSource(pdfMicStream);
+      pdfAnalyser = pdfAudioCtx.createAnalyser();
+      pdfAnalyser.fftSize = 1024; pdfAnalyser.smoothingTimeConstant = 0.3;
+      source.connect(pdfAnalyser);
+      pdfListenMode = true; pdfListenAccum = 0; pdfSmoothedVolume = 0;
+      pdfBtnMic.classList.add('active'); pdfVolumeMeter.classList.add('visible');
+      pdfVolumeThreshLine.style.left = pdfNoiseThreshold + '%';
+      const dataArray = new Uint8Array(pdfAnalyser.frequencyBinCount);
+      const timeData = new Float32Array(pdfAnalyser.fftSize);
+      let lastTime = null, lastPitchMult = 1.0;
+      function listenStep(ts) {
+        if (!pdfListenMode) return;
+        pdfAnalyser.getByteTimeDomainData(dataArray);
+        let sumSq = 0;
+        for (let i = 0; i < dataArray.length; i++) { const v = (dataArray[i] - 128) / 128; sumSq += v * v; }
+        let rms = Math.sqrt(sumSq / dataArray.length);
+        // Pitch-based boost
+        pdfAnalyser.getFloatTimeDomainData(timeData);
+        const pitch = autoCorrelate(timeData, pdfAudioCtx.sampleRate);
+        let pitchMult = 1.0;
+        if (pitch > -1) {
+          if (pitch > 260) pitchMult = 1.0 + Math.min(1.5, ((pitch - 260) / 540) * 1.5);
+          lastPitchMult = pitchMult;
+        } else {
+          pitchMult = lastPitchMult;
+          lastPitchMult = Math.max(1.0, lastPitchMult - 0.05);
+        }
+        rms = rms * pitchMult;
+        const volumePct = Math.min(100, rms * 400);
+        pdfSmoothedVolume += (volumePct - pdfSmoothedVolume) * 0.25;
+        pdfVolumeBarFill.style.width = pdfSmoothedVolume + '%';
+        if (pdfSmoothedVolume > pdfNoiseThreshold) {
+          const above = pdfSmoothedVolume - pdfNoiseThreshold;
+          const range = 100 - pdfNoiseThreshold;
+          const norm = Math.min(1, above / range);
+          const listenSpeed = norm * (pdfSensitivity / 5) * pdfMaxListenSpeed;
+          if (lastTime !== null) {
+            const delta = (ts - lastTime) / 16.667;
+            pdfListenAccum += listenSpeed * delta;
+            const pixels = Math.floor(pdfListenAccum);
+            if (pixels >= 1) { pdfScrollContainer.scrollTop += pixels; pdfListenAccum -= pixels; }
+          }
+        } else { pdfListenAccum *= 0.9; }
+        lastTime = ts; updatePdfProgress();
+        const atBottom = pdfScrollContainer.scrollTop + pdfScrollContainer.clientHeight >= pdfScrollContainer.scrollHeight - 2;
+        if (atBottom && pdfIsLooping) pdfScrollContainer.scrollTop = 0;
+        pdfListenAnimId = requestAnimationFrame(listenStep);
+      }
+      pdfListenAnimId = requestAnimationFrame(listenStep);
+    }
+
+    function stopPdfListenMode() {
+      pdfListenMode = false; cancelAnimationFrame(pdfListenAnimId);
+      pdfBtnMic.classList.remove('active'); pdfVolumeMeter.classList.remove('visible');
+      pdfVolumeBarFill.style.width = '0%';
+      if (pdfMicStream) { pdfMicStream.getTracks().forEach(t => t.stop()); pdfMicStream = null; }
+      if (pdfAudioCtx) { pdfAudioCtx.close(); pdfAudioCtx = null; }
+    }
+
+    // ── PDF Note Follow Mode ──────────────────────────
+    pdfRangeOnsetThreshold.addEventListener('input', () => { pdfOnsetThreshold = parseInt(pdfRangeOnsetThreshold.value); pdfLblOnsetThreshold.textContent = pdfOnsetThreshold + '%'; });
+    pdfRangeOnsetCooldown.addEventListener('input', () => { pdfOnsetCooldown = parseInt(pdfRangeOnsetCooldown.value); pdfLblOnsetCooldown.textContent = pdfOnsetCooldown; });
+    pdfRangeStrumsPerNote.addEventListener('input', () => { pdfStrumsPerNote = parseInt(pdfRangeStrumsPerNote.value); pdfLblStrumsPerNote.textContent = pdfStrumsPerNote; });
+    pdfRangeFollowScrollSpd.addEventListener('input', () => { pdfFollowScrollSpeed = parseInt(pdfRangeFollowScrollSpd.value); pdfLblFollowScrollSpeed.textContent = pdfFollowScrollSpeed; });
+
+    pdfBtnFollow.addEventListener('click', togglePdfFollowMode);
+    async function togglePdfFollowMode() { if (pdfFollowMode) stopPdfFollowMode(); else await startPdfFollowMode(); }
+
+    async function extractPdfTextGroups() {
+      if (!pdfCurrentFile) return [];
+      const arrayBuffer = await pdfCurrentFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+      const dpr = window.devicePixelRatio || 1;
+      const scale = (pdfZoomLevel / 100) * dpr;
+      pdfCanvasOffsets = [];
+      let cumY = 0;
+      const canvases = pdfScrollContainer.querySelectorAll('canvas');
+      for (const c of canvases) { pdfCanvasOffsets.push(cumY); cumY += c.offsetHeight; }
+      const allGroups = [];
+      for (let p = 1; p <= numPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale });
+        const textContent = await page.getTextContent();
+        const items = [];
+        for (const item of textContent.items) {
+          if (!item.str || !item.str.trim()) continue;
+          const pdfY = viewport.height - item.transform[5];
+          const cssY = pdfY / dpr, cssX = item.transform[4] / dpr;
+          items.push({ text: item.str.trim(), y: cssY, x: cssX });
+        }
+        if (items.length === 0) continue;
+        items.sort((a, b) => Math.abs(a.y - b.y) < 12 ? a.x - b.x : a.y - b.y);
+        const lines = [];
+        let currentLine = { y: items[0].y, items: [items[0]] };
+        for (let i = 1; i < items.length; i++) {
+          if (Math.abs(items[i].y - currentLine.y) < 12) { currentLine.items.push(items[i]); currentLine.y = Math.max(currentLine.y, items[i].y); }
+          else { lines.push(currentLine); currentLine = { y: items[i].y, items: [items[i]] }; }
+        }
+        lines.push(currentLine);
+        const parsedLines = lines.map(line => { line.items.sort((a, b) => a.x - b.x); return { y: line.y, text: line.items.map(it => it.text).join(' ') }; });
+        const pageOffset = (p - 1 < pdfCanvasOffsets.length) ? pdfCanvasOffsets[p - 1] : 0;
+        const canvasEl = canvases[p - 1];
+        const originalCssH = viewport.height / dpr;
+        const trimmedCssH = canvasEl ? canvasEl.offsetHeight : originalCssH;
+        const trimDelta = originalCssH - trimmedCssH;
+        const trimTopEstimate = trimDelta > 0 ? trimDelta * 0.5 : 0;
+        const candidateLines = [];
+        for (const line of parsedLines) {
+          const words = line.text.split(/[\s,|./;-]+/);
+          let noteCount = 0, validWords = 0;
+          for (let w of words) {
+            w = w.replace(/[^A-Za-z0-9#]/g, '');
+            if (!w || /^\d+$/.test(w)) continue;
+            validWords++;
+            if (/^(?:[A-Ga-g][#b]?(?:m|min|maj|M|sus|dim|aug)?[0-9]*|Sa|Re|Ga|Ma|Pa|Dha|Ni)$/i.test(w)) noteCount++;
+            else if (/^([A-Ga-g][#b]?\d*){2,}$/i.test(w)) { const m = w.match(/[A-Ga-g][#b]?\d*/gi); if (m) noteCount += m.length; }
+          }
+          const ratio = validWords > 0 ? noteCount / validWords : 0;
+          if (ratio >= 0.4 && noteCount >= 2) candidateLines.push({ ...line, noteCount });
+        }
+        if (candidateLines.length === 0) continue;
+        const groups = [];
+        let currentGroup = [candidateLines[0]];
+        for (let i = 1; i < candidateLines.length; i++) {
+          if (candidateLines[i].y - candidateLines[i - 1].y < 60) currentGroup.push(candidateLines[i]);
+          else { groups.push(currentGroup); currentGroup = [candidateLines[i]]; }
+        }
+        groups.push(currentGroup);
+        for (const group of groups) {
+          const yStart = pageOffset + group[0].y - trimTopEstimate;
+          const yEnd = pageOffset + group[group.length - 1].y + 20 - trimTopEstimate;
+          const totalNotes = group.reduce((sum, l) => sum + l.noteCount, 0);
+          allGroups.push({ yStart: Math.max(0, yStart), yEnd: Math.max(0, yEnd), noteCount: totalNotes, scrollTarget: Math.max(0, yStart - 80) });
+        }
+      }
+      return allGroups;
+    }
+
+    async function startPdfFollowMode() {
+      if (pdfIsPlaying) stopPdfScrolling();
+      if (pdfListenMode) stopPdfListenMode();
+      loader.classList.add('active'); loaderText.textContent = 'Analysing notes…';
+      pdfFollowGroups = await extractPdfTextGroups();
+      loader.classList.remove('active');
+      if (pdfFollowGroups.length === 0) { alert('No note lines detected in this PDF.'); return; }
+      pdfCurrentGroupIdx = 0; pdfCurrentNoteCount = 0;
+      pdfGroupHighlightEl = document.createElement('div');
+      pdfGroupHighlightEl.className = 'group-highlight';
+      pdfScrollContainer.appendChild(pdfGroupHighlightEl);
+      function updateHighlight() {
+        const g = pdfFollowGroups[pdfCurrentGroupIdx];
+        pdfGroupHighlightEl.style.top = g.yStart + 'px';
+        pdfGroupHighlightEl.style.height = (g.yEnd - g.yStart) + 'px';
+        pdfScrollContainer.scrollTo({ top: g.scrollTarget, behavior: 'smooth' });
+        pdfFollowGroupEl.textContent = `${pdfCurrentGroupIdx + 1}/${pdfFollowGroups.length}`;
+        pdfFollowNoteEl.textContent = `${pdfCurrentNoteCount}/${g.noteCount * pdfStrumsPerNote}`;
+      }
+      updateHighlight();
+      try { pdfFollowMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } }); }
+      catch (err) { alert('Microphone access required for Note Follow Mode.'); return; }
+      pdfFollowAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = pdfFollowAudioCtx.createMediaStreamSource(pdfFollowMicStream);
+      pdfFollowAnalyser = pdfFollowAudioCtx.createAnalyser();
+      pdfFollowAnalyser.fftSize = 256; pdfFollowAnalyser.smoothingTimeConstant = 0.2;
+      source.connect(pdfFollowAnalyser);
+      pdfFollowMode = true; pdfBtnFollow.classList.add('active'); pdfFollowStatusEl.classList.add('visible');
+      const dataArray = new Uint8Array(pdfFollowAnalyser.frequencyBinCount);
+      function followStep() {
+        if (!pdfFollowMode) return;
+        pdfFollowAnalyser.getByteFrequencyData(dataArray);
+        let sum = 0; for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const pct = Math.min(100, avg * 2.5);
+        const thresholdPct = pdfOnsetThreshold;
+        const now = performance.now();
+        if (pct > thresholdPct && !pdfWasAboveThreshold && (now - pdfLastOnsetTime) > pdfOnsetCooldown) {
+          pdfWasAboveThreshold = true; pdfLastOnsetTime = now; pdfCurrentNoteCount++;
+          const g = pdfFollowGroups[pdfCurrentGroupIdx];
+          pdfFollowNoteEl.textContent = `${pdfCurrentNoteCount}/${g.noteCount * pdfStrumsPerNote}`;
+          if (pdfCurrentNoteCount >= g.noteCount * pdfStrumsPerNote) {
+            pdfCurrentGroupIdx++;
+            if (pdfCurrentGroupIdx >= pdfFollowGroups.length) { stopPdfFollowMode(); return; }
+            pdfCurrentNoteCount = 0; updateHighlight();
+          }
+        } else if (pct < thresholdPct * 0.6) { pdfWasAboveThreshold = false; }
+        pdfFollowAnimId = requestAnimationFrame(followStep);
+      }
+      pdfFollowAnimId = requestAnimationFrame(followStep);
+    }
+
+    function stopPdfFollowMode() {
+      pdfFollowMode = false; cancelAnimationFrame(pdfFollowAnimId);
+      pdfBtnFollow.classList.remove('active'); pdfFollowStatusEl.classList.remove('visible');
+      if (pdfGroupHighlightEl) { pdfGroupHighlightEl.remove(); pdfGroupHighlightEl = null; }
+      if (pdfFollowMicStream) { pdfFollowMicStream.getTracks().forEach(t => t.stop()); pdfFollowMicStream = null; }
+      if (pdfFollowAudioCtx) { pdfFollowAudioCtx.close(); pdfFollowAudioCtx = null; }
+    }
+
+    // ══════════════════════════════════════════════════
+    // SECTION B: TEXT EDITOR MODE
+    // ══════════════════════════════════════════════════
+
+    const textBrowseBtn = document.getElementById('text-browse-btn');
+    const textFileInput = document.getElementById('text-file-input');
+    const modeTextCard  = document.getElementById('mode-text-card');
+    const textEditor    = document.getElementById('text-editor');
+    const tpContainer   = document.getElementById('tp-container');
+    const tpBtnBack     = document.getElementById('tp-btn-back');
+    const tpBtnToggle   = document.getElementById('tp-btn-toggle-play');
+    const tpStatusDot   = document.getElementById('tp-status-dot');
+    const tpStatusText  = document.getElementById('tp-status-text');
+    const tpRangeSens   = document.getElementById('tp-range-sens');
+    const tpLblSens     = document.getElementById('tp-lbl-sens');
+    const tpRangeSpeed  = document.getElementById('tp-range-speed');
+    const tpLblSpeed    = document.getElementById('tp-lbl-speed');
+    const tpRangeSize   = document.getElementById('tp-range-size');
+    const tpLblSize     = document.getElementById('tp-lbl-size');
+    const tpPitchDisplay = document.getElementById('tp-pitch-display');
+    const tpMeterFill   = document.getElementById('tp-meter-fill');
+    const tpMeterThresh = document.getElementById('tp-meter-threshold');
+
+    // Text Mode State
+    let tpTrackableLines = [], tpCurrentTrackIdx = 0, tpIsListening = false;
+    let tpScrollAnimId = null, tpAudioCtx = null, tpAnalyser = null, tpMicStream = null;
+    let tpLastOnsetTime = 0, tpLastValidPitchTime = 0, tpWasAboveThreshold = false;
+    let tpNotesHeardOnLine = 0, tpEnvelope = 0, tpPrevFreqData = null;
+    let tpPendingPluckTime = 0, tpLastCountedNoteClass = '', tpPrevRms = 0;
+    let tpConsecutivePitchMatches = 0;
+    let tpIsEditMode = false;
+    const tpLineShadeMasks = new Map(); // lineText -> Array<null|'shade-dark'|'shade-grey'>
+    const tpManualOverrides = new Map();
+    let tpOnsetThreshold = 25, tpBaseScrollSpeed = 1.5;
+
+    const noteStrings = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    function pitchToNoteString(pitch) {
+      let noteNum = 12 * (Math.log(pitch / 440) / Math.log(2));
+      let rounded = Math.round(noteNum) + 69;
+      return noteStrings[rounded % 12] + Math.floor(rounded / 12 - 1);
+    }
+
+    // Upload: Text Mode
+    textBrowseBtn.addEventListener('click', e => { e.stopPropagation(); textFileInput.click(); });
+    textFileInput.addEventListener('change', e => { if (e.target.files[0]) extractPdfText(e.target.files[0]); });
+    modeTextCard.addEventListener('dragover', e => { e.preventDefault(); modeTextCard.classList.add('dragover'); });
+    modeTextCard.addEventListener('dragleave', () => modeTextCard.classList.remove('dragover'));
+    modeTextCard.addEventListener('drop', e => {
+      e.preventDefault(); modeTextCard.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') extractPdfText(file);
+    });
+
+    async function getPageItemBackgrounds(page, items) {
+      // Render the page to an offscreen canvas then sample the pixel behind each item.
+      // This works regardless of how the PDF encodes background shading.
+      const scale = 1.5; // enough resolution to reliably sample
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const cw = canvas.width;
+
+      function brightness(pdfX, pdfY) {
+        // viewport.transform = [scaleX, 0, 0, scaleY, offsetX, offsetY]
+        // For a standard PDF page scaleY is negative (y-axis flip)
+        const t = viewport.transform;
+        const cx = Math.round(t[0]*pdfX + t[2]*pdfY + t[4]);
+        const cy = Math.round(t[1]*pdfX + t[3]*pdfY + t[5]);
+        const sx = Math.max(0, Math.min(cx, canvas.width  - 1));
+        const sy = Math.max(0, Math.min(cy, canvas.height - 1));
+        const i = (sy * cw + sx) * 4;
+        // Return average RGB in 0-1
+        return (imgData.data[i] + imgData.data[i+1] + imgData.data[i+2]) / (3 * 255);
+      }
+
+      return items.map(item => {
+        const pdfX = item.transform[4];
+        const pdfY = item.transform[5];
+        const fontSize = Math.abs(item.transform[0]) || 10;
+
+        // Sample ABOVE the cap height (pdfY + >0.8 * fontSize in PDF's bottom-up y-axis).
+        // To avoid sampling outside narrow shaded blocks (like a single "E"),
+        // constrain the X offsets to within the item's measured width.
+        const w = Math.max(item.width, fontSize * 0.5);
+        const b1 = brightness(pdfX + w * 0.25, pdfY + fontSize * 0.9);
+        const b2 = brightness(pdfX + w * 0.50, pdfY + fontSize * 0.9);
+        const b3 = brightness(pdfX + w * 0.75, pdfY + fontSize * 0.9);
+        
+        // Take the minimum brightness to be robust against edge bleed
+        const minB = Math.min(b1, b2, b3);
+        const avg = (b1 + b2 + b3) / 3;
+        if (item.str.trim()) console.log(`[Shade] "${item.str.trim()}" → b=[${b1.toFixed(2)},${b2.toFixed(2)},${b3.toFixed(2)}] min=${minB.toFixed(2)}`);
+        
+        if (minB < 0.35) return 'shade-dark';
+        if (minB < 0.85) return 'shade-grey';
+        return null;
+      });
+    }
+
+    async function extractPdfText(file) {
+      loader.classList.add('active'); loaderText.textContent = 'Extracting text…';
+      try {
+        tpLineShadeMasks.clear();
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent({ disableCombineTextItems: true });
+        const streamItems = content.items; // keep stream order
+
+        // Sample background pixel for every item
+        const bgClasses = await getPageItemBackgrounds(page, streamItems);
+        streamItems.forEach((it, idx) => { it._shade = bgClasses[idx]; });
+
+        // Compute global page metrics for perfect vertical column alignment
+        let totalWidth = 0, totalChars = 0, pageMinX = Infinity;
+        for (const it of streamItems) {
+            const str = it.str.trim();
+            if (str.length > 0 && it.width > 0) {
+                totalWidth += it.width;
+                totalChars += str.length;
+                if (it.transform[4] < pageMinX) pageMinX = it.transform[4];
+            }
+        }
+        const globalCharWidth = totalChars > 0 ? (totalWidth / totalChars) : 6.0;
+        if (pageMinX === Infinity) pageMinX = 0;
+
+        const items = [...streamItems];
+        if (items.length === 0) continue;
+        
+        items.sort((a, b) => Math.abs(b.transform[5] - a.transform[5]) < 12 ? a.transform[4] - b.transform[4] : b.transform[5] - a.transform[5]);
+        const lines = [];
+        let currLine = items.length ? { y: items[0].transform[5], items: [items[0]] } : null;
+        for (let i = 1; i < items.length; i++) {
+          if (Math.abs(items[i].transform[5] - currLine.y) < 12) { currLine.items.push(items[i]); currLine.y = Math.min(currLine.y, items[i].transform[5]); }
+          else { lines.push(currLine); currLine = { y: items[i].transform[5], items: [items[i]] }; }
+        }
+        if (currLine) lines.push(currLine);
+
+        const blocks = [];
+        let currBlock = [lines[0]];
+        for (let i = 1; i < lines.length; i++) {
+            if (Math.abs(lines[i].y - lines[i-1].y) < 45) {
+                currBlock.push(lines[i]);
+            } else {
+                blocks.push(currBlock);
+                currBlock = [lines[i]];
+            }
+        }
+        if (currBlock.length) blocks.push(currBlock);
+
+        for (const block of blocks) {
+            // First, split any compound strings into individual words with exact estimated physical coordinates
+            const blockWords = [];
+            for (const line of block) {
+                const lineSplitWords = [];
+                for (const it of line.items) {
+                    const str = it.str;
+                    if (!str.trim()) continue;
+                    
+                    let currentWord = '';
+                    let startIdx = -1;
+                    // pdf.js sometimes doesn't provide width per character, so we estimate based on the bounding box
+                    const charWidthEstimate = (it.width > 0 && str.length > 0) ? (it.width / str.length) : globalCharWidth;
+                    
+                    for (let c = 0; c < str.length; c++) {
+                        if (str[c] !== ' ' && str[c] !== '\t') {
+                            if (startIdx === -1) startIdx = c;
+                            currentWord += str[c];
+                        } else {
+                            if (currentWord) {
+                                const physicalX = it.transform[4] + (startIdx * charWidthEstimate);
+                                lineSplitWords.push({ str: currentWord, x: physicalX, _shade: it._shade });
+                                currentWord = '';
+                                startIdx = -1;
+                            }
+                        }
+                    }
+                    if (currentWord) {
+                        const physicalX = it.transform[4] + (startIdx * charWidthEstimate);
+                        lineSplitWords.push({ str: currentWord, x: physicalX, _shade: it._shade });
+                    }
+                }
+                lineSplitWords.sort((a, b) => a.x - b.x);
+                blockWords.push(lineSplitWords);
+            }
+
+            // Group items by X-coordinate to find tab stops for this specific block
+            const tabStops = [];
+            for (const splitWords of blockWords) {
+                for (const sw of splitWords) {
+                    let found = false;
+                    for (const ts of tabStops) {
+                        if (Math.abs(ts.x - sw.x) < globalCharWidth * 1.5) {
+                            ts.items.push(sw);
+                            found = true; break;
+                        }
+                    }
+                    if (!found) tabStops.push({ x: sw.x, items: [sw] });
+                }
+            }
+            tabStops.sort((a, b) => a.x - b.x);
+
+            // Calculate the starting text index for each tab stop
+            let currentIndex = 0;
+            for (const ts of tabStops) {
+                // Compress the grid spacing aggressively so words aren't miles apart
+                const baseCol = Math.max(0, Math.round((ts.x - pageMinX) / (globalCharWidth * 1.6)));
+                
+                // Set the actual column to the absolute column, unless it overlaps with the previous tab stop.
+                ts.index = Math.max(currentIndex, baseCol);
+                
+                let maxLen = 0;
+                for (const it of ts.items) {
+                    if (it.str.trim().length > maxLen) maxLen = it.str.trim().length;
+                }
+                
+                // The next tab stop MUST start at least 1 space after the end of this one
+                currentIndex = ts.index + maxLen + 1;
+            }
+
+            for (const splitWords of blockWords) {
+                if (splitWords.length === 0) { fullText += '\n'; continue; }
+
+                let lineChars = [], shadeMask = [];
+                for (const sw of splitWords) {
+                    let tsIndex = 0;
+                    for (const ts of tabStops) {
+                        if (Math.abs(ts.x - sw.x) < globalCharWidth * 1.5) {
+                            tsIndex = ts.index; break;
+                        }
+                    }
+                    
+                    const col = Math.max(lineChars.length, tsIndex);
+                    const str = sw.str;
+                    const shade = sw._shade || null;
+                    
+                    while (lineChars.length < col) { lineChars.push(' '); shadeMask.push(null); }
+                    for (let ci = 0; ci < str.length; ci++) {
+                        lineChars.push(str[ci]); shadeMask.push(shade);
+                    }
+                }
+
+                const lineText = lineChars.join('').replace(/\s+$/, '');
+                const trimmedMask = shadeMask.slice(0, lineText.length);
+                if (trimmedMask.some(s => s !== null)) tpLineShadeMasks.set(lineText, trimmedMask);
+                fullText += lineText + '\n';
+            }
+            fullText += '\n'; // extra blank line between blocks
+        }
+      }
+
+        textEditor.value = fullText.trim();
+        loader.classList.remove('active');
+        buildTeleprompter();
+        showScreen(textPlayScreen);
+        tpContainer.scrollTop = 0;
+      } catch (err) {
+        console.error("Extraction error:", err);
+        alert("Failed to extract PDF: " + err.message);
+        loader.classList.remove('active');
+      }
+    }
+
+    tpBtnBack.addEventListener('click', () => { stopTpListening(); showScreen(uploadScreen); });
+
+    tpRangeSens.addEventListener('input', () => { tpOnsetThreshold = parseInt(tpRangeSens.value); tpLblSens.textContent = tpOnsetThreshold; });
+    tpRangeSpeed.addEventListener('input', () => { tpBaseScrollSpeed = parseFloat(tpRangeSpeed.value); tpLblSpeed.textContent = tpBaseScrollSpeed.toFixed(1); });
+    tpRangeSize.addEventListener('input', () => { const v = parseFloat(tpRangeSize.value); tpLblSize.textContent = v.toFixed(1) + 'x'; tpContainer.style.fontSize = v + 'rem'; });
+    tpContainer.style.fontSize = tpRangeSize.value + 'rem';
+    
+    const tpBtnSettings = document.getElementById('tp-btn-settings');
+    const tpSettingsPanel = document.getElementById('tp-settings-panel');
+    tpBtnSettings.addEventListener('click', () => tpSettingsPanel.classList.toggle('open'));
+
+    const chordModRegex = /\b[A-G](?:#|b)?(?:m|min|maj|M|sus|dim|aug|7|9|11|13)\b/i;
+
+    function detectNotesInLine(text) {
+      const words = text.split(/[\s,|./;-]+/);
+      let noteCount = 0, validWords = 0;
+      for (let w of words) {
+        if (chordModRegex.test(w)) return { noteCount: 0, validWords: 0 };
+        w = w.replace(/[^A-Za-z0-9#]/g, '');
+        if (!w || /^\d+$/.test(w)) continue;
+        validWords++;
+        if (/^(?:[A-Ga-g][#b]?[0-9]*|Sa|Re|Ga|Ma|Pa|Dha|Ni)$/.test(w)) noteCount++;
+        else if (/^([a-gA-G](?:#|b)?\d*){2,}$/.test(w)) { const m = w.match(/[a-gA-G](?:#|b)?\d*/g); if (m) noteCount += m.length; }
+      }
+      return { noteCount, validWords };
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function createLineHtml(text, shadeMask) {
+      if (!text) return '\u00A0';
+      const tokens = text.split(/(\s+)/);
+      let html = '';
+      let charPos = 0;
+      for (let t of tokens) {
+        if (/^\s+$/.test(t)) { html += escapeHtml(t); charPos += t.length; continue; }
+
+        let w = t.replace(/[^A-Za-z0-9#b]/g, '');
+        if (!w || /^\d+$/.test(w) || chordModRegex.test(w)) {
+           html += escapeHtml(t); charPos += t.length; continue;
+        }
+
+        const tokenStart = charPos + t.indexOf(w);
+
+        if (/^(?:[A-Ga-g][#b]?[0-9]*|Sa|Re|Ga|Ma|Pa|Dha|Ni)$/.test(w)) {
+           const shade = shadeMask ? (shadeMask[tokenStart] || null) : null;
+           const shadeClass = shade ? ` ${shade}` : '';
+           html += escapeHtml(t).replace(w, `<span class="tp-note${shadeClass}">${w}</span>`);
+        } else if (/^([a-gA-G](?:#|b)?\d*){2,}$/.test(w)) {
+           const m = w.match(/[a-gA-G](?:#|b)?\d*/g);
+           let currentOffset = tokenStart;
+           let rebuilt = '';
+           for (const n of m) {
+               const shade = shadeMask ? (shadeMask[currentOffset] || null) : null;
+               const shadeClass = shade ? ` ${shade}` : '';
+               rebuilt += `<span class="tp-note${shadeClass}">${n}</span>`;
+               currentOffset += n.length;
+           }
+           html += escapeHtml(t).replace(w, rebuilt);
+        } else {
+           html += escapeHtml(t);
+        }
+        charPos += t.length;
+      }
+      return html;
+    }
+
+    function buildTeleprompter() {
+      tpContainer.innerHTML = ''; tpTrackableLines = []; tpCurrentTrackIdx = 0; tpNotesHeardOnLine = 0;
+      tpContainer.style.fontSize = parseFloat(tpRangeSize.value) + 'rem';
+      const lines = textEditor.value.split('\n');
+      const trackableIndices = new Set();
+      for (let i = 0; i < lines.length; i++) {
+        const text = lines[i].replace(/\s+$/, '');
+        let isTrackable = false;
+        if (tpManualOverrides.has(text)) {
+          isTrackable = tpManualOverrides.get(text);
+        } else {
+          const { noteCount, validWords } = detectNotesInLine(text);
+          const ratio = validWords > 0 ? noteCount / validWords : 0;
+          isTrackable = (ratio >= 0.3 && noteCount >= 1);
+        }
+        if (isTrackable) trackableIndices.add(i);
+      }
+      for (let i = 0; i < lines.length; i++) {
+        const text = lines[i];
+        const el = document.createElement('div');
+        el.className = 'tp-line';
+        
+        if (trackableIndices.has(i)) {
+          const shadeMask = tpLineShadeMasks.get(text.replace(/\s+$/, '')) || null;
+          el.innerHTML = createLineHtml(text, shadeMask);
+          const { noteCount } = detectNotesInLine(text);
+          el.classList.add('trackable');
+          el.dataset.notes = noteCount;
+          el.dataset.originalText = text;
+          tpTrackableLines.push(el);
+          const badge = document.createElement('span');
+          badge.className = 'tp-badge';
+          badge.innerHTML = `<span class="heard">0</span> / ${noteCount}`;
+          el.appendChild(badge);
+        } else {
+          // Use createLineHtml for ALL lines so shade spans work even on non-trackable lines
+          const shadeMask = tpLineShadeMasks.get(text.replace(/\s+$/, '')) || null;
+          el.innerHTML = createLineHtml(text, shadeMask);
+          el.dataset.originalText = text;
+        }
+
+        
+        el.style.cursor = 'pointer';
+        el.title = 'Click to toggle tracking for this line';
+        el.addEventListener('click', () => {
+          if (tpIsListening || tpIsEditMode) return;
+          if (el.classList.contains('trackable')) {
+            el.classList.remove('trackable', 'active', 'past');
+            const badge = el.querySelector('.tp-badge'); if (badge) badge.remove();
+            el.dataset.notes = '0';
+            tpManualOverrides.set(el.dataset.originalText.trim(), false);
+          } else {
+            const { noteCount } = detectNotesInLine(el.textContent);
+            const count = noteCount > 0 ? noteCount : 1;
+            el.classList.add('trackable'); el.dataset.notes = count;
+            el.dataset.originalText = el.textContent;
+            const badge = document.createElement('span');
+            badge.className = 'tp-badge';
+            badge.innerHTML = `<span class="heard">0</span> / ${count}`;
+            el.appendChild(badge);
+            tpManualOverrides.set(el.dataset.originalText.trim(), true);
+          }
+          tpTrackableLines = Array.from(tpContainer.querySelectorAll('.tp-line.trackable'));
+          tpTrackableLines.forEach(l => l.classList.remove('active', 'past'));
+          if (tpTrackableLines.length > 0) {
+            tpTrackableLines[0].classList.add('active');
+            tpStatusText.textContent = `Waiting for ${tpTrackableLines[0].dataset.notes} notes`;
+          }
+        });
+        tpContainer.appendChild(el);
+      }
+      if (tpTrackableLines.length > 0) {
+        tpTrackableLines[0].classList.add('active');
+        tpStatusText.textContent = `Waiting for ${tpTrackableLines[0].dataset.notes} notes`;
+      } else { tpStatusText.textContent = 'No notes found'; }
+    }
+
+    tpBtnToggle.addEventListener('click', async () => { if (tpIsListening) stopTpListening(); else await startTpListening(); });
+
+    async function startTpListening() {
+      try {
+        tpMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
+        tpAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        tpAnalyser = tpAudioCtx.createAnalyser();
+        tpAnalyser.fftSize = 2048;
+        tpPrevFreqData = new Uint8Array(tpAnalyser.frequencyBinCount);
+        const source = tpAudioCtx.createMediaStreamSource(tpMicStream);
+        source.connect(tpAnalyser);
+        tpIsListening = true;
+        tpBtnToggle.textContent = 'Stop Listening';
+        tpBtnToggle.style.background = 'var(--danger)';
+        document.getElementById('tp-btn-edit-overlay').style.display = 'none';
+        tpStatusDot.classList.add('listening');
+        if (tpCurrentTrackIdx < tpTrackableLines.length) {
+          const req = tpTrackableLines[tpCurrentTrackIdx].dataset.notes;
+          tpStatusText.textContent = `Waiting: ${tpNotesHeardOnLine} / ${req}`;
+        } else { tpStatusText.textContent = 'Finished!'; }
+        tpLastOnsetTime = performance.now();
+        scrollLoop();
+      } catch (err) { console.error(err); alert('Microphone access denied or failed.'); }
+    }
+
+    function stopTpListening() {
+      tpIsListening = false;
+      if (tpScrollAnimId) cancelAnimationFrame(tpScrollAnimId);
+      if (tpMicStream) tpMicStream.getTracks().forEach(t => t.stop());
+      if (tpAudioCtx) tpAudioCtx.close();
+      tpMicStream = null; tpAudioCtx = null; tpAnalyser = null;
+      tpBtnToggle.textContent = 'Start Listening';
+      tpBtnToggle.style.background = 'var(--accent)';
+      document.getElementById('tp-btn-edit-overlay').style.display = 'inline-flex';
+      tpStatusDot.classList.remove('listening');
+      tpStatusText.textContent = 'Paused';
+    }
+
+    // --- In-Place Live Editing ---
+    const tpBtnEditMode = document.getElementById('tp-btn-edit-overlay');
+
+    tpBtnEditMode.addEventListener('click', () => {
+      // Must be paused to edit
+      if (tpIsListening) return;
+
+      tpIsEditMode = !tpIsEditMode;
+      
+      if (tpIsEditMode) {
+        // Turn ON Edit Mode
+        tpContainer.contentEditable = "true";
+        tpContainer.classList.add('editing-mode');
+        tpBtnEditMode.innerHTML = "✓ Done Editing";
+        tpBtnEditMode.style.background = "var(--success)";
+        tpBtnEditMode.style.color = "#000";
+        tpBtnEditMode.style.borderColor = "var(--success)";
+        document.getElementById('tp-btn-toggle-play').style.display = 'none';
+        document.getElementById('tp-btn-restart').style.display = 'none';
+      } else {
+        // Extract BEFORE turning off Edit Mode so display:none badges are ignored by innerText
+        const newLines = [];
+        Array.from(tpContainer.children).forEach(el => {
+           if (el.tagName !== 'DIV' || el.classList.contains('focus-line-tp')) return;
+           const rawText = (el.innerText || el.textContent || '');
+           const sublines = rawText.split('\n');
+           sublines.forEach(text => {
+               text = text.trim();
+               if (!text) return;
+               newLines.push(text);
+               tpManualOverrides.set(text, el.classList.contains('trackable'));
+           });
+        });
+        
+        // Turn OFF Edit Mode
+        tpContainer.contentEditable = "false";
+        tpContainer.classList.remove('editing-mode');
+        tpBtnEditMode.innerHTML = "✏️ Edit";
+        tpBtnEditMode.style.background = "rgba(108,92,231,0.2)";
+        tpBtnEditMode.style.color = "var(--accent-hi)";
+        tpBtnEditMode.style.borderColor = "var(--accent)";
+        document.getElementById('tp-btn-toggle-play').style.display = 'inline-flex';
+        document.getElementById('tp-btn-restart').style.display = 'inline-flex';
+        
+        const savedIdx = tpCurrentTrackIdx;
+        const savedHeard = tpNotesHeardOnLine;
+        const savedScroll = tpContainer.scrollTop;
+        
+        textEditor.value = newLines.join('\n');
+        buildTeleprompter();
+        
+        if (savedIdx < tpTrackableLines.length) {
+           tpCurrentTrackIdx = savedIdx;
+           tpNotesHeardOnLine = 0; // Restart tracking for the current line
+           
+           tpTrackableLines.forEach(l => l.classList.remove('active', 'past'));
+           for (let i = 0; i < tpCurrentTrackIdx; i++) tpTrackableLines[i].classList.add('past');
+           
+           const newActiveLine = tpTrackableLines[tpCurrentTrackIdx];
+           newActiveLine.classList.add('active');
+           const bh = newActiveLine.querySelector('.heard'); if (bh) bh.textContent = '0';
+           
+           const requiredNotes = parseInt(newActiveLine.dataset.notes);
+           tpStatusText.textContent = `Waiting: 0 / ${requiredNotes}`;
+        }
+        
+        tpContainer.scrollTop = savedScroll;
+      }
+    });
+
+    function resetTpState() {
+      stopTpListening();
+      // Reset counters
+      tpCurrentTrackIdx = 0;
+      tpNotesHeardOnLine = 0;
+      tpWasAboveThreshold = false;
+      tpEnvelope = 0;
+      tpPrevFreqData = null;
+      tpPendingPluckTime = 0;
+      tpLastCountedNoteClass = '';
+      tpPrevRms = 0;
+      tpConsecutivePitchMatches = 0;
+      // Reset all line visuals
+      tpTrackableLines.forEach(l => {
+        l.classList.remove('active', 'past');
+        l.querySelectorAll('.tp-note.played').forEach(n => n.classList.remove('played'));
+        const heard = l.querySelector('.heard');
+        if (heard) heard.textContent = '0';
+      });
+      // Re-activate first line
+      if (tpTrackableLines.length > 0) {
+        tpTrackableLines[0].classList.add('active');
+        tpStatusText.textContent = `Waiting for ${tpTrackableLines[0].dataset.notes} notes`;
+      } else {
+        tpStatusText.textContent = 'No notes found';
+      }
+      // Scroll back to top
+      tpContainer.scrollTop = 0;
+      tpPitchDisplay.textContent = '--';
+      tpMeterFill.style.width = '0%';
+    }
+
+    document.getElementById('tp-btn-restart').addEventListener('click', resetTpState);
+
+    function scrollLoop() {
+      if (!tpIsListening) return;
+      const freqData = new Uint8Array(tpAnalyser.frequencyBinCount);
+      tpAnalyser.getByteFrequencyData(freqData);
+      const timeData = new Float32Array(tpAnalyser.fftSize);
+      tpAnalyser.getFloatTimeDomainData(timeData);
+      const pitch = autoCorrelate(timeData, tpAudioCtx.sampleRate);
+      const now = performance.now();
+      let detectedNoteClass = '';
+      if (pitch > -1) { 
+        tpLastValidPitchTime = now; 
+        detectedNoteClass = pitchToNoteString(pitch).replace(/[0-9-]/g, '');
+        tpPitchDisplay.textContent = detectedNoteClass; 
+      }
+      else if (now - tpLastValidPitchTime > 200) { tpPitchDisplay.textContent = '--'; }
+      
+      // Spectral Flux (High Frequencies) for accurate high-note detection
+      let highFlux = 0;
+      if (!tpPrevFreqData || tpPrevFreqData.length !== tpAnalyser.frequencyBinCount) {
+         tpPrevFreqData = new Uint8Array(tpAnalyser.frequencyBinCount);
+      }
+      const startBin = Math.floor(2000 / (tpAudioCtx.sampleRate / tpAnalyser.fftSize));
+      const endBin = Math.floor(9000 / (tpAudioCtx.sampleRate / tpAnalyser.fftSize));
+      for (let i = startBin; i < endBin && i < freqData.length; i++) {
+        const diff = freqData[i] - tpPrevFreqData[i];
+        if (diff > 0) highFlux += diff;
+      }
+      tpPrevFreqData.set(freqData);
+      
+      // Scale Flux for Logic/UI
+      const rawVol = highFlux / 3; 
+      tpMeterFill.style.width = Math.min(100, rawVol) + '%';
+      
+      // Dynamic Threshold using an Envelope Follower
+      const dynamicThreshold = (tpEnvelope * 1.3) + (tpOnsetThreshold * 0.5);
+      tpMeterThresh.style.left = Math.min(100, dynamicThreshold) + '%';
+      
+      // Determine expected note
+      let expectedNote = '';
+      if (tpCurrentTrackIdx < tpTrackableLines.length) {
+        const al = tpTrackableLines[tpCurrentTrackIdx];
+        const notes = al.querySelectorAll('.tp-note');
+        if (tpNotesHeardOnLine < notes.length) {
+          expectedNote = notes[tpNotesHeardOnLine].textContent.replace(/[0-9-]/g, '');
+        }
+      }
+      
+      // Calculate RMS (Total Energy)
+      let rms = 0;
+      for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
+      rms = Math.sqrt(rms / timeData.length);
+      const isAudible = (rms * 1000) > 5;
+      const isRmsRising = rms > tpPrevRms * 1.05; // Enforce at least 5% volume increase
+      
+      // 1. Pluck Detection (Flux Spike + Rising Volume)
+      if (rawVol > dynamicThreshold && isRmsRising) {
+        tpMeterFill.style.background = 'var(--danger)';
+        const currentDebounce = (expectedNote === tpLastCountedNoteClass) ? 110 : 70;
+        if (!tpWasAboveThreshold && now - tpLastOnsetTime > currentDebounce) {
+          tpLastOnsetTime = now;
+          tpEnvelope = rawVol; // Instantly push envelope to peak
+          
+          if (expectedNote) {
+             // Open Pitch Validation Window
+             tpPendingPluckTime = now;
+             tpStatusDot.style.background = '#fdcb6e'; // Yellow: Validating
+             tpStatusDot.style.boxShadow = '0 0 10px #fdcb6e';
+          }
+        }
+        tpWasAboveThreshold = true;
+      } else {
+        tpMeterFill.style.background = 'var(--success)';
+        if (rawVol < dynamicThreshold * 0.90) {
+          tpWasAboveThreshold = false;
+        }
+      }
+      
+      // --- Helper function to confirm a note ---
+      function confirmNote(triggerType) {
+          tpPendingPluckTime = 0; // Close window
+          tpNotesHeardOnLine++;
+          tpLastCountedNoteClass = expectedNote;
+          
+          tpStatusDot.style.transform = 'scale(1.4)'; 
+          tpStatusDot.style.background = triggerType === 'slide' ? 'var(--accent)' : 'var(--success)';
+          tpStatusDot.style.boxShadow = `0 0 10px ${triggerType === 'slide' ? 'var(--accent)' : 'var(--success)'}`;
+          
+          setTimeout(() => { 
+            tpStatusDot.style.transform = ''; 
+            tpStatusDot.style.background = ''; 
+            tpStatusDot.style.boxShadow = '';
+          }, 150);
+          
+          if (tpCurrentTrackIdx < tpTrackableLines.length) {
+            const al = tpTrackableLines[tpCurrentTrackIdx];
+            const bh = al.querySelector('.heard'); if (bh) bh.textContent = tpNotesHeardOnLine;
+            const notes = al.querySelectorAll('.tp-note');
+            for(let k=0; k<notes.length; k++) {
+              if (k < tpNotesHeardOnLine) notes[k].classList.add('played');
+              else notes[k].classList.remove('played');
+            }
+          }
+      }
+      
+      // Helper function to check if pitch matches expected note with a configurable tolerance
+      function isPitchMatch(detectedPitch, expectedNoteStr, tolerance) {
+          if (detectedPitch <= 0 || !expectedNoteStr) return false;
+          const detectedMidiFloat = 12 * (Math.log(detectedPitch / 440) / Math.log(2)) + 69;
+          const expectedMidiClass = noteStrings.indexOf(expectedNoteStr);
+          if (expectedMidiClass === -1) return false;
+          
+          const midiClassFloat = ((detectedMidiFloat % 12) + 12) % 12;
+          const distance = Math.min(
+              Math.abs(midiClassFloat - expectedMidiClass),
+              Math.abs(midiClassFloat - (expectedMidiClass + 12)),
+              Math.abs((midiClassFloat + 12) - expectedMidiClass)
+          );
+          return distance <= tolerance;
+      }
+      
+      // 2. Pitch Validation for Plucks
+      if (tpPendingPluckTime > 0) {
+         if (now - tpPendingPluckTime <= 150) { // 150ms window to allow for 2 stable frames
+             // Forgiving 0.65 hitbox: strings often bend sharp exactly when plucked
+             if (isPitchMatch(pitch, expectedNote, 0.65)) {
+                 tpConsecutivePitchMatches++;
+                 if (tpConsecutivePitchMatches >= 2) {
+                     confirmNote('pluck');
+                     tpConsecutivePitchMatches = 0;
+                 }
+             } else {
+                 tpConsecutivePitchMatches = 0;
+             }
+         } else {
+             // Validation Window Expired (Wrong note or noise)
+             tpPendingPluckTime = 0;
+             tpConsecutivePitchMatches = 0;
+             tpStatusDot.style.background = ''; 
+             tpStatusDot.style.boxShadow = '';
+         }
+      } 
+      // 3. Smooth Pitch Slide Trigger (Legato)
+      // Strict 0.4 hitbox: requires pitch to definitively arrive inside the new note without overlapping!
+      else if (expectedNote && isAudible && expectedNote !== tpLastCountedNoteClass) {
+          if (isPitchMatch(pitch, expectedNote, 0.40)) {
+              tpConsecutivePitchMatches++;
+              if (tpConsecutivePitchMatches >= 2) {
+                  confirmNote('slide');
+                  tpConsecutivePitchMatches = 0;
+              }
+          } else {
+              tpConsecutivePitchMatches = 0;
+          }
+      } else {
+          tpConsecutivePitchMatches = 0;
+      }
+      
+      // The envelope tracks the flux and decays slowly to track the ring-out curve
+      tpEnvelope = Math.max(rawVol, tpEnvelope * 0.96);
+      // Scrolling
+      if (tpCurrentTrackIdx < tpTrackableLines.length) {
+        const activeLine = tpTrackableLines[tpCurrentTrackIdx];
+        const requiredNotes = parseInt(activeLine.dataset.notes);
+        tpStatusText.textContent = `Waiting: ${tpNotesHeardOnLine} / ${requiredNotes}`;
+        const rect = activeLine.getBoundingClientRect();
+        const focusY = window.innerHeight * 0.35;
+        const lineCenterY = rect.top + (rect.height / 2);
+        if (lineCenterY > focusY) { tpContainer.scrollTop += tpBaseScrollSpeed; }
+        else {
+          if (tpNotesHeardOnLine >= requiredNotes) {
+            activeLine.classList.remove('active'); activeLine.classList.add('past');
+            tpCurrentTrackIdx++; tpNotesHeardOnLine = 0;
+            if (tpCurrentTrackIdx < tpTrackableLines.length) {
+              tpTrackableLines[tpCurrentTrackIdx].classList.add('active');
+            } else { tpStatusText.textContent = 'Finished!'; stopTpListening(); return; }
+          }
+        }
+      }
+      tpPrevRms = rms;
+      tpScrollAnimId = requestAnimationFrame(scrollLoop);
+    }
+  </script>
+</body>
+</html>

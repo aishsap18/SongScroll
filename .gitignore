@@ -1,0 +1,11 @@
+node_modules/
+*.log
+test-*.js
+out.txt
+compressed.txt
+extract-js.js
+*.pdf
+.DS_Store
+.env
+*backup*
+test.mjs
