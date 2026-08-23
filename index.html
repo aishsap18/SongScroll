@@ -143,6 +143,61 @@
     }
     .logout-btn:hover { background: rgba(253,121,168,0.15); color: var(--danger); border-color: var(--danger); }
 
+    /* ── Library Section ─────────────────────────────── */
+    .library-section {
+      width: min(860px, 96vw);
+      margin-top: 36px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .library-header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border-hi); padding-bottom: 12px;
+    }
+    .library-title {
+      font-size: 1.1rem; font-weight: 600; color: var(--text);
+    }
+    .library-search-wrapper {
+      position: relative; width: 240px;
+    }
+    .library-search {
+      width: 100%; padding: 8px 12px 8px 36px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 100px; color: var(--text); font-size: 0.9rem;
+      transition: var(--transition); outline: none;
+    }
+    .library-search:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
+    .library-search::placeholder { color: var(--text-dim); }
+    .library-search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 14px; opacity: 0.5; pointer-events: none;
+    }
+    .library-list {
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 240px; overflow-y: auto; padding-right: 8px;
+    }
+    .library-list::-webkit-scrollbar { width: 6px; }
+    .library-list::-webkit-scrollbar-track { background: transparent; }
+    .library-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
+    
+    .library-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer; transition: var(--transition);
+    }
+    .library-item:hover {
+      background: var(--bg-glass); border-color: var(--accent-hi);
+      transform: translateX(4px);
+    }
+    .library-item-icon { margin-right: 12px; font-size: 20px; }
+    .library-item-name { flex: 1; font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .library-item-meta { font-size: 0.8rem; color: var(--text-dim); }
+    .library-empty {
+      text-align: center; padding: 32px; color: var(--text-dim);
+      font-size: 0.95rem; background: var(--bg-surface); border-radius: var(--radius-sm);
+      border: 1px dashed var(--border-hi);
+    }
+
     /* ── Upload Screen ────────────────────────────────── */
     #upload-screen {
       align-items: center;
@@ -691,7 +746,21 @@
         <input type="file" id="text-file-input" accept="application/pdf" hidden />
       </div>
     </div>
-    <p class="file-hint">Supports PDF files · Rendered locally in your browser</p>
+    <p class="file-hint" style="margin-bottom: 0;">Supports PDF files · Rendered locally in your browser</p>
+
+    <!-- Library Section -->
+    <div class="library-section">
+      <div class="library-header">
+        <span class="library-title">Your Song Library</span>
+        <div class="library-search-wrapper">
+          <span class="library-search-icon">🔍</span>
+          <input type="text" class="library-search" id="library-search-input" placeholder="Search songs..." />
+        </div>
+      </div>
+      <div class="library-list" id="library-list">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
   </div>
 
   <!-- ─── PDF Canvas Screen ───────────────────────────── -->
@@ -917,6 +986,98 @@
       authMsg.className = 'auth-msg';
     });
 
+    let currentUser = null;
+
+    // ── Library Logic ────────────────────────────────────
+    const libraryList = document.getElementById('library-list');
+    const librarySearch = document.getElementById('library-search-input');
+    let userLibraryFiles = [];
+
+    async function loadUserLibrary() {
+      if (!currentUser) return;
+      libraryList.innerHTML = '<div class="library-empty">Loading your songs...</div>';
+      const { data, error } = await supabase.storage.from('pdfs').list(currentUser.id, {
+        limit: 100, offset: 0, sortBy: { column: 'created_at', order: 'desc' }
+      });
+      
+      if (error) {
+        libraryList.innerHTML = `<div class="library-empty" style="color:var(--danger)">Error loading library: ${error.message}</div>`;
+        return;
+      }
+      
+      userLibraryFiles = data.filter(f => f.name.endsWith('.pdf'));
+      renderLibrary();
+    }
+
+    function renderLibrary(query = '') {
+      libraryList.innerHTML = '';
+      const q = query.toLowerCase();
+      const filtered = userLibraryFiles.filter(f => f.name.toLowerCase().includes(q));
+
+      if (filtered.length === 0) {
+        libraryList.innerHTML = `<div class="library-empty">${query ? 'No songs match your search.' : 'You haven\'t uploaded any songs yet.'}</div>`;
+        return;
+      }
+
+      filtered.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'library-item';
+        
+        // Size format
+        const kb = (f.metadata?.size || 0) / 1024;
+        let sizeStr = kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : Math.round(kb) + ' KB';
+        
+        item.innerHTML = `
+          <div class="library-item-icon">📄</div>
+          <div class="library-item-name" title="${f.name}">${f.name}</div>
+          <div class="library-item-meta">${sizeStr}</div>
+        `;
+        
+        item.addEventListener('click', () => downloadAndOpenPdf(f.name));
+        libraryList.appendChild(item);
+      });
+    }
+
+    librarySearch.addEventListener('input', e => renderLibrary(e.target.value));
+
+    async function downloadAndOpenPdf(filename) {
+      loader.classList.add('active'); loaderText.textContent = 'Downloading ' + filename + '…';
+      try {
+        const { data, error } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}`);
+        if (error) throw error;
+        
+        const file = new File([data], filename, { type: 'application/pdf' });
+        extractPdfText(file);
+      } catch (err) {
+        console.error("Download error:", err);
+        alert("Failed to download PDF: " + err.message);
+        loader.classList.remove('active');
+      }
+    }
+
+    async function uploadPdfToSupabase(file) {
+      if (!currentUser) return;
+      try {
+        const path = `${currentUser.id}/${file.name}`;
+        const { data, error } = await supabase.storage.from('pdfs').upload(path, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+        if (error) throw error;
+        // Reload library to show new file
+        await loadUserLibrary();
+      } catch (err) {
+        console.error("Upload error:", err);
+      }
+    }
+
+    function onLoginSuccess(user, username) {
+      currentUser = user;
+      greetingName.textContent = username;
+      showScreen(uploadScreen);
+      loadUserLibrary();
+    }
+
     // Submit handler
     authSubmitBtn.addEventListener('click', async () => {
       const username = authUsername.value.trim().toLowerCase();
@@ -953,45 +1114,27 @@
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { username } }
+          email, password, options: { data: { username } }
         });
 
         if (error) {
           let msg = error.message;
-          if (msg.includes('already registered') || msg.includes('already been registered')) {
-            msg = 'This username is already taken. Please choose another.';
-          }
-          authMsg.textContent = msg;
-          authMsg.classList.add('error');
-          authSubmitBtn.disabled = false;
-          return;
+          if (msg.includes('already registered')) msg = 'This username is already taken.';
+          authMsg.textContent = msg; authMsg.classList.add('error');
+          authSubmitBtn.disabled = false; return;
         }
-
-        // Success
-        greetingName.textContent = username;
-        showScreen(uploadScreen);
+        onLoginSuccess(data.user, username);
       } else {
-        // Login
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
         if (error) {
           let msg = error.message;
-          if (msg.includes('Invalid login credentials')) {
-            msg = 'Invalid username or password.';
-          }
-          authMsg.textContent = msg;
-          authMsg.classList.add('error');
-          authSubmitBtn.disabled = false;
-          return;
+          if (msg.includes('Invalid login credentials')) msg = 'Invalid username or password.';
+          authMsg.textContent = msg; authMsg.classList.add('error');
+          authSubmitBtn.disabled = false; return;
         }
-
         const displayName = data.user?.user_metadata?.username || username;
-        greetingName.textContent = displayName;
-        showScreen(uploadScreen);
+        onLoginSuccess(data.user, displayName);
       }
-
       authSubmitBtn.disabled = false;
     });
 
@@ -1002,11 +1145,10 @@
     // Logout handler
     logoutBtn.addEventListener('click', async () => {
       await supabase.auth.signOut();
-      authUsername.value = '';
-      authPassword.value = '';
-      authConfirmPw.value = '';
-      authMsg.textContent = '';
-      authMsg.className = 'auth-msg';
+      currentUser = null;
+      userLibraryFiles = [];
+      authUsername.value = ''; authPassword.value = ''; authConfirmPw.value = '';
+      authMsg.textContent = ''; authMsg.className = 'auth-msg';
       showScreen(authScreen);
     });
 
@@ -1014,8 +1156,7 @@
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const displayName = session.user?.user_metadata?.username || 'User';
-      greetingName.textContent = displayName;
-      showScreen(uploadScreen);
+      onLoginSuccess(session.user, displayName);
     } else {
       showScreen(authScreen);
     }
@@ -1099,7 +1240,13 @@
     const modePdfCard  = document.getElementById('mode-pdf-card');
 
     pdfBrowseBtn.addEventListener('click', e => { e.stopPropagation(); pdfFileInput.click(); });
-    pdfFileInput.addEventListener('change', e => { if (e.target.files[0]) handlePdfFile(e.target.files[0]); });
+    pdfFileInput.addEventListener('change', async e => { 
+      const file = e.target.files[0];
+      if (file) {
+        await uploadPdfToSupabase(file);
+        handlePdfFile(file);
+      }
+    });
     modePdfCard.addEventListener('dragover', e => { e.preventDefault(); modePdfCard.classList.add('dragover'); });
     modePdfCard.addEventListener('dragleave', () => modePdfCard.classList.remove('dragover'));
     modePdfCard.addEventListener('drop', e => {
@@ -1580,7 +1727,13 @@
 
     // Upload: Text Mode
     textBrowseBtn.addEventListener('click', e => { e.stopPropagation(); textFileInput.click(); });
-    textFileInput.addEventListener('change', e => { if (e.target.files[0]) extractPdfText(e.target.files[0]); });
+    textFileInput.addEventListener('change', async e => { 
+      const file = e.target.files[0];
+      if (file) {
+        await uploadPdfToSupabase(file);
+        extractPdfText(file);
+      }
+    });
     modeTextCard.addEventListener('dragover', e => { e.preventDefault(); modeTextCard.classList.add('dragover'); });
     modeTextCard.addEventListener('dragleave', () => modeTextCard.classList.remove('dragover'));
     modeTextCard.addEventListener('drop', e => {
