@@ -1050,6 +1050,8 @@
     // Expose for inline onclick
     window._openPdf = (filename, mode) => downloadAndOpenPdf(filename, mode);
 
+    let currentTextFilename = null;
+
     async function downloadAndOpenPdf(filename, mode) {
       loader.classList.add('active'); loaderText.textContent = 'Downloading ' + filename + '…';
       try {
@@ -1061,7 +1063,20 @@
         if (mode === 'pdf') {
           handlePdfFile(file);
         } else {
-          extractPdfText(file);
+          currentTextFilename = filename;
+          // Try to fetch saved edits (.txt)
+          const { data: txtData, error: txtError } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}.txt`);
+          if (!txtError && txtData) {
+            const text = await txtData.text();
+            textEditor.value = text;
+            loader.classList.remove('active');
+            buildTeleprompter();
+            showScreen(textPlayScreen);
+            tpContainer.scrollTop = 0;
+          } else {
+            // No saved edits, run full extraction
+            extractPdfText(file);
+          }
         }
       } catch (err) {
         console.error("Download error:", err);
@@ -1808,6 +1823,7 @@
     }
 
     async function extractPdfText(file) {
+      currentTextFilename = file.name;
       loader.classList.add('active'); loaderText.textContent = 'Extracting text…';
       try {
         tpLineShadeMasks.clear();
@@ -2207,6 +2223,15 @@
         
         textEditor.value = newLines.join('\n');
         buildTeleprompter();
+
+        // Save edits to Supabase as .txt
+        if (currentUser && currentTextFilename) {
+          const txtFile = new File([textEditor.value], currentTextFilename + '.txt', { type: 'text/plain' });
+          supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}.txt`, txtFile, {
+            cacheControl: '3600',
+            upsert: true
+          }).catch(err => console.error('Error saving text edits:', err));
+        }
         
         if (savedIdx < tpTrackableLines.length) {
            tpCurrentTrackIdx = savedIdx;
