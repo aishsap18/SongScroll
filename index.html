@@ -190,8 +190,15 @@
       transform: translateX(4px);
     }
     .library-item-icon { margin-right: 12px; font-size: 20px; }
-    .library-item-name { flex: 1; font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .library-item-meta { font-size: 0.8rem; color: var(--text-dim); }
+    .library-item-name { flex: 1; font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+    .library-item-actions { display: flex; gap: 8px; }
+    .lib-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid var(--border-hi);
+      padding: 6px 12px; border-radius: 100px; color: var(--text);
+      font-size: 0.8rem; font-family: var(--font); cursor: pointer;
+      transition: var(--transition); display: flex; align-items: center; gap: 6px;
+    }
+    .lib-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
     .library-empty {
       text-align: center; padding: 32px; color: var(--text-dim);
       font-size: 0.95rem; background: var(--bg-surface); border-radius: var(--radius-sm);
@@ -201,7 +208,9 @@
     /* ── Upload Screen ────────────────────────────────── */
     #upload-screen {
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      padding: 80px 20px 40px;
+      overflow-y: auto;
       z-index: 100;
     }
 
@@ -1023,31 +1032,37 @@
         const item = document.createElement('div');
         item.className = 'library-item';
         
-        // Size format
-        const kb = (f.metadata?.size || 0) / 1024;
-        let sizeStr = kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : Math.round(kb) + ' KB';
-        
         item.innerHTML = `
-          <div class="library-item-icon">📄</div>
+          <div class="library-item-icon">🎵</div>
           <div class="library-item-name" title="${f.name}">${f.name}</div>
-          <div class="library-item-meta">${sizeStr}</div>
+          <div class="library-item-actions">
+            <button class="lib-btn" onclick="window._openPdf('${f.name}', 'pdf')">📄 PDF View</button>
+            <button class="lib-btn" onclick="window._openPdf('${f.name}', 'text')">✏️ Text Editor</button>
+          </div>
         `;
         
-        item.addEventListener('click', () => downloadAndOpenPdf(f.name));
         libraryList.appendChild(item);
       });
     }
 
     librarySearch.addEventListener('input', e => renderLibrary(e.target.value));
 
-    async function downloadAndOpenPdf(filename) {
+    // Expose for inline onclick
+    window._openPdf = (filename, mode) => downloadAndOpenPdf(filename, mode);
+
+    async function downloadAndOpenPdf(filename, mode) {
       loader.classList.add('active'); loaderText.textContent = 'Downloading ' + filename + '…';
       try {
         const { data, error } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}`);
         if (error) throw error;
         
         const file = new File([data], filename, { type: 'application/pdf' });
-        extractPdfText(file);
+        
+        if (mode === 'pdf') {
+          handlePdfFile(file);
+        } else {
+          extractPdfText(file);
+        }
       } catch (err) {
         console.error("Download error:", err);
         alert("Failed to download PDF: " + err.message);
