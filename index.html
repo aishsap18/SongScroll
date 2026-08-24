@@ -749,27 +749,27 @@
       <button class="mode-cta" id="landing-login-btn" style="width: 240px; font-size: 1.1rem; padding: 16px; background: linear-gradient(135deg, var(--accent), var(--accent-hi)); color: #fff; border: none; border-radius: 100px; cursor: pointer; font-weight: 700; box-shadow: 0 8px 32px var(--accent-glow); transition: transform 0.2s;">Get Started →</button>
       
       <div style="margin-top: 60px; font-size: 0.9rem; color: var(--text-dim);">
-        Have questions or feedback? <a href="#" id="landing-contact-link" style="color: var(--accent-hi); text-decoration: none; font-weight: 500;">Contact Us</a>
+        Have ideas or suggestions? <a href="#" id="landing-contact-link" style="color: var(--accent-hi); text-decoration: none; font-weight: 500;">Give Feedback</a>
       </div>
     </div>
   </div>
 
-  <!-- ─── Contact Screen ─────────────────────────────────── -->
+  <!-- ─── Feedback Screen ─────────────────────────────────── -->
   <div id="contact-screen" class="screen hidden" style="align-items: center; justify-content: center;">
     <div class="auth-card" style="position: relative; max-width: 480px;">
       <button id="contact-back-btn" style="position: absolute; top: 20px; left: 20px; background: transparent; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer;">← Back</button>
       
       <div class="brand" style="justify-content:center; margin-bottom: 4px; margin-top: 10px;">
-        <div class="brand-icon">✉️</div>
-        <h1 style="font-size: 1.8rem;">Contact Us</h1>
+        <div class="brand-icon">💡</div>
+        <h1 style="font-size: 1.8rem;">Feedback</h1>
       </div>
-      <p class="brand-sub" style="margin-bottom: 28px;">We'd love to hear from you</p>
+      <p class="brand-sub" style="margin-bottom: 28px;">We'd love to hear your thoughts!</p>
 
       <input type="text" class="auth-input" id="contact-name" placeholder="Your Name" />
       <input type="email" class="auth-input" id="contact-email" placeholder="Your Email" />
-      <textarea class="auth-input" id="contact-message" placeholder="Your Message" style="min-height: 120px; resize: vertical; padding-top: 12px; font-family: var(--font);"></textarea>
+      <textarea class="auth-input" id="contact-message" placeholder="What can we improve?" style="min-height: 120px; resize: vertical; padding-top: 12px; font-family: var(--font);"></textarea>
 
-      <button class="auth-btn" id="contact-submit-btn">Send Message</button>
+      <button class="auth-btn" id="contact-submit-btn">Send Feedback</button>
       <div class="auth-msg" id="contact-msg"></div>
     </div>
   </div>
@@ -1083,14 +1083,14 @@
         const { error } = await supabase.from('contact_messages').insert([{ name, email, message }]);
         if (error) throw error;
         
-        msgEl.textContent = 'Thank you for your message!';
+        msgEl.textContent = 'Thank you for your feedback!';
         msgEl.className = 'auth-msg success';
         document.getElementById('contact-name').value = '';
         document.getElementById('contact-email').value = '';
         document.getElementById('contact-message').value = '';
       } catch (err) {
         console.error(err);
-        msgEl.textContent = 'Failed to send message. Please try again.';
+        msgEl.textContent = 'Failed to send feedback. Please try again.';
         msgEl.className = 'auth-msg error';
       } finally {
         btnEl.disabled = false;
