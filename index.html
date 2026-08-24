@@ -766,7 +766,7 @@
       <p class="brand-sub" style="margin-bottom: 28px;">We'd love to hear your thoughts!</p>
 
       <input type="text" class="auth-input" id="contact-name" placeholder="Your Name" />
-      <input type="email" class="auth-input" id="contact-email" placeholder="Your Email" />
+      <input type="email" class="auth-input" id="contact-email" placeholder="Your Email (optional)" />
       <textarea class="auth-input" id="contact-message" placeholder="What can we improve?" style="min-height: 120px; resize: vertical; padding-top: 12px; font-family: var(--font);"></textarea>
 
       <button class="auth-btn" id="contact-submit-btn">Send Feedback</button>
@@ -1069,10 +1069,19 @@
       const msgEl = document.getElementById('contact-msg');
       const btnEl = document.getElementById('contact-submit-btn');
 
-      if (!name || !email || !message) {
-        msgEl.textContent = 'Please fill out all fields.';
+      if (!name || !message) {
+        msgEl.textContent = 'Please fill out your name and message.';
         msgEl.className = 'auth-msg error';
         return;
+      }
+
+      if (email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          msgEl.textContent = 'Please enter a valid email address.';
+          msgEl.className = 'auth-msg error';
+          return;
+        }
       }
 
       msgEl.textContent = 'Sending...';
