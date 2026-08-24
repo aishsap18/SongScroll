@@ -2133,7 +2133,11 @@
       }
     }
 
-    tpBtnBack.addEventListener('click', () => { stopTpListening(); showScreen(uploadScreen); });
+    tpBtnBack.addEventListener('click', () => { 
+      stopTpListening(); 
+      if (typeof saveToggleOverrides === 'function') saveToggleOverrides(true);
+      showScreen(uploadScreen); 
+    });
 
     tpRangeSens.addEventListener('input', () => { tpOnsetThreshold = parseInt(tpRangeSens.value); tpLblSens.textContent = tpOnsetThreshold; });
     tpRangeSpeed.addEventListener('input', () => { tpBaseScrollSpeed = parseFloat(tpRangeSpeed.value); tpLblSpeed.textContent = tpBaseScrollSpeed.toFixed(1); });
@@ -2202,17 +2206,21 @@
       return html;
     }
     let tpSaveOverridesTimeout = null;
-    function saveToggleOverrides() {
+    function saveToggleOverrides(immediate = false) {
       if (!currentUser || !currentTextFilename) return;
       if (tpSaveOverridesTimeout) clearTimeout(tpSaveOverridesTimeout);
-      tpSaveOverridesTimeout = setTimeout(() => {
+      
+      const doSave = () => {
         const overridesObj = Object.fromEntries(tpManualOverrides);
         const jsonFile = new File([JSON.stringify(overridesObj)], currentTextFilename + '_overrides.json', { type: 'application/json' });
         supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}_overrides.json`, jsonFile, {
           cacheControl: '3600',
           upsert: true
         }).catch(err => console.error('Error saving toggle overrides:', err));
-      }, 1000); // Debounce saves slightly
+      };
+      
+      if (immediate) doSave();
+      else tpSaveOverridesTimeout = setTimeout(doSave, 1000); // Debounce
     }
 
     function buildTeleprompter() {
