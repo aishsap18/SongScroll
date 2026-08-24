@@ -597,6 +597,20 @@
     }
     #text-editor:focus { border-color: var(--accent); background: rgba(255,255,255,0.06); }
 
+    .info-banner {
+      background: rgba(116, 185, 255, 0.1); border: 1px solid rgba(116, 185, 255, 0.3);
+      border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 20px;
+      display: flex; gap: 12px; align-items: flex-start;
+      color: rgba(116, 185, 255, 0.9); font-size: 0.9rem; line-height: 1.5; text-align: left;
+    }
+    .info-banner .icon { font-size: 1.2rem; line-height: 1.2; }
+    .info-banner .content { flex: 1; }
+    .info-banner .dismiss-btn {
+      background: none; border: none; color: inherit; cursor: pointer;
+      opacity: 0.6; font-size: 1.2rem; padding: 0 4px; line-height: 1;
+    }
+    .info-banner .dismiss-btn:hover { opacity: 1; }
+
     /* ── Text Play Screen ────────────────────────────── */
     #text-play-screen { z-index: 80; background: #2d313a; }
     .play-toolbar {
@@ -818,6 +832,12 @@
     </div>
     <p class="brand-sub">Your PDF teleprompter for live performances</p>
 
+    <div class="info-banner" id="banner-upload" style="max-width: 800px; margin: 0 auto 30px auto; width: 100%;">
+      <div class="icon">💡</div>
+      <div class="content"><strong>Getting Started:</strong> Choose a mode below and browse for a PDF to start. Your processed files and text edits will automatically save to your Library for next time!</div>
+      <button class="dismiss-btn">&times;</button>
+    </div>
+
     <div class="mode-cards">
       <!-- PDF Canvas Mode -->
       <div class="mode-card" id="mode-pdf-card">
@@ -868,6 +888,11 @@
 
   <!-- ─── PDF Canvas Screen ───────────────────────────── -->
   <div id="pdf-screen" class="screen hidden">
+    <div class="info-banner" id="banner-pdf" style="max-width: 900px; margin: 16px auto; position: absolute; top: 60px; left: 0; right: 0; z-index: 10;">
+      <div class="icon">💡</div>
+      <div class="content"><strong>PDF Mode:</strong> Use the buttons below to control scrolling. Click the <strong>microphone</strong> icon to enable <strong>Listen Mode</strong>, which scrolls faster when you play louder!</div>
+      <button class="dismiss-btn">&times;</button>
+    </div>
     <div class="top-bar">
       <div class="top-bar-left">
         <button class="icon-btn" id="pdf-btn-back" title="Back to mode selection">↩</button>
@@ -1005,6 +1030,13 @@
         <button class="icon-btn" id="tp-btn-settings" title="Settings (S)">⚙</button>
       </div>
     </div>
+    
+    <div class="info-banner" id="banner-textplay" style="max-width: 900px; margin: 16px auto; z-index: 10;">
+      <div class="icon">💡</div>
+      <div class="content"><strong>Text Mode:</strong> Hit <strong>Start Listening</strong> to scroll automatically. Lines with chord spans (e.g. <code>C</code>, <code>Am</code>) are tracked automatically. <strong>Click any line</strong> to manually include/exclude it. Need to fix lyrics? Hit <strong>Edit</strong>!</div>
+      <button class="dismiss-btn">&times;</button>
+    </div>
+
     <div class="focus-line-tp"></div>
     <div class="teleprompter-container" id="tp-container"></div>
     
@@ -1057,6 +1089,25 @@
       [landingScreen, contactScreen, authScreen, uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
       screen.classList.remove('hidden');
     }
+
+    // Info Banners
+    function setupDismissibleBanner(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (localStorage.getItem('dismissed_' + id) === 'true') {
+        el.style.display = 'none';
+      }
+      const btn = el.querySelector('.dismiss-btn');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          el.style.display = 'none';
+          localStorage.setItem('dismissed_' + id, 'true');
+        });
+      }
+    }
+    setupDismissibleBanner('banner-upload');
+    setupDismissibleBanner('banner-pdf');
+    setupDismissibleBanner('banner-textplay');
 
     // Landing screen CTA and Navigation
     document.getElementById('landing-login-btn').addEventListener('click', () => showScreen(authScreen));
