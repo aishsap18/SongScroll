@@ -1208,18 +1208,6 @@
           handlePdfFile(file);
         } else {
           currentTextFilename = filename;
-          
-          // Try to fetch saved overrides first
-          const { data: jsonBlob } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}_overrides.json`);
-          if (jsonBlob) {
-            try {
-              const text = await jsonBlob.text();
-              const obj = JSON.parse(text);
-              tpManualOverrides.clear();
-              Object.entries(obj).forEach(([k, v]) => tpManualOverrides.set(k, v));
-            } catch (e) { console.error('Failed to parse overrides:', e); }
-          }
-
           // Try to fetch saved edits (.txt)
           const { data: txtData, error: txtError } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}.txt`);
           if (!txtError && txtData) {
@@ -1983,7 +1971,6 @@
       loader.classList.add('active'); loaderText.textContent = 'Extracting text…';
       try {
         tpLineShadeMasks.clear();
-        tpManualOverrides.clear();
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = '';
@@ -2381,22 +2368,13 @@
         textEditor.value = newLines.join('\n');
         buildTeleprompter();
 
-        // Save edits to Supabase as .txt and overrides as .json
+        // Save edits to Supabase as .txt
         if (currentUser && currentTextFilename) {
-          // Save text
           const txtFile = new File([textEditor.value], currentTextFilename + '.txt', { type: 'text/plain' });
           supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}.txt`, txtFile, {
             cacheControl: '3600',
             upsert: true
           }).catch(err => console.error('Error saving text edits:', err));
-
-          // Save toggle states (overrides)
-          const overridesObj = Object.fromEntries(tpManualOverrides);
-          const jsonFile = new File([JSON.stringify(overridesObj)], currentTextFilename + '_overrides.json', { type: 'application/json' });
-          supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}_overrides.json`, jsonFile, {
-            cacheControl: '3600',
-            upsert: true
-          }).catch(err => console.error('Error saving toggle overrides:', err));
         }
         
         if (savedIdx < tpTrackableLines.length) {
