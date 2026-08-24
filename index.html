@@ -1080,7 +1080,7 @@
       btnEl.disabled = true;
 
       try {
-        const { error } = await supabase.from('contact_messages').insert([{ name, email, message }]);
+        const { error } = await supabase.from('feedback').insert([{ name, email, message }]);
         if (error) throw error;
         
         msgEl.textContent = 'Thank you for your feedback!';
