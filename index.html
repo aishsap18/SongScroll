@@ -2223,8 +2223,8 @@
       for (let i = 0; i < lines.length; i++) {
         const text = lines[i].replace(/\s+$/, '');
         let isTrackable = false;
-        if (tpManualOverrides.has(text)) {
-          isTrackable = tpManualOverrides.get(text);
+        if (tpManualOverrides.has(text.trim())) {
+          isTrackable = tpManualOverrides.get(text.trim());
         } else {
           const { noteCount, validWords } = detectNotesInLine(text);
           const ratio = validWords > 0 ? noteCount / validWords : 0;
@@ -2270,7 +2270,6 @@
             const { noteCount } = detectNotesInLine(el.textContent);
             const count = noteCount > 0 ? noteCount : 1;
             el.classList.add('trackable'); el.dataset.notes = count;
-            el.dataset.originalText = el.textContent;
             const badge = document.createElement('span');
             badge.className = 'tp-badge';
             badge.innerHTML = `<span class="heard">0</span> / ${count}`;
