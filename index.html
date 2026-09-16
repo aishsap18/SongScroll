@@ -2548,7 +2548,7 @@
         tpMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
         tpAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         tpAnalyser = tpAudioCtx.createAnalyser();
-        tpAnalyser.fftSize = 8192;
+        tpAnalyser.fftSize = 4096; // 4096 is the sweet spot: fast enough for low latency (92ms), big enough for YIN/FFT to catch low D.
         tpPrevFreqData = new Uint8Array(tpAnalyser.frequencyBinCount);
         const source = tpAudioCtx.createMediaStreamSource(tpMicStream);
         source.connect(tpAnalyser);
@@ -2787,7 +2787,7 @@
       // 1. Pluck Detection (Flux Spike + Rising Volume)
       if (rawVol > dynamicThreshold && isRmsRising) {
         tpMeterFill.style.background = 'var(--danger)';
-        const currentDebounce = (expectedNote === tpLastCountedNoteClass) ? 110 : 70;
+        const currentDebounce = (expectedNote === tpLastCountedNoteClass) ? 70 : 40; // Dramatically reduced debounce
         if (!tpWasAboveThreshold && now - tpLastOnsetTime > currentDebounce) {
           tpLastOnsetTime = now;
           tpEnvelope = rawVol; // Instantly push envelope to peak
@@ -2852,11 +2852,11 @@
       
       // 2. Pitch Validation for Plucks
       if (tpPendingPluckTime > 0) {
-         if (now - tpPendingPluckTime <= 150) { // 150ms window to allow for 2 stable frames
+         if (now - tpPendingPluckTime <= 100) { // 100ms window (reduced from 150ms for faster failure/retry)
              // Forgiving 0.65 hitbox: strings often bend sharp exactly when plucked
              if (isPitchMatch(pitch, expectedNote, 0.65)) {
                  tpConsecutivePitchMatches++;
-                 if (tpConsecutivePitchMatches >= 2) {
+                 if (tpConsecutivePitchMatches >= 1) { // INSTANT confirm: 1 frame is enough since volume spike already proved a pluck occurred
                      confirmNote('pluck');
                      tpConsecutivePitchMatches = 0;
                  }
