@@ -127,30 +127,64 @@
     .auth-confirm.visible { display: block; }
 
     .greeting-bar {
-      display: flex; align-items: center; justify-content: flex-end;
-      gap: 12px; padding: 8px 24px;
-      position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+      position: absolute; top: 30px; right: 30px;
+      display: flex; align-items: center; gap: 12px; z-index: 100;
+      background: rgba(20, 20, 25, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 100px;
+      padding: 6px 6px 6px 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+    .greeting-bar:hover {
+      background: rgba(30, 30, 35, 0.8);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 15px rgba(253, 121, 168, 0.1);
+      transform: translateY(-1px);
     }
     #auth-state-header {
-      background: rgba(20, 20, 25, 0.7);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: rgba(20, 20, 25, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 100px;
-      padding: 6px 6px 6px 18px; /* Extra padding on left, tight on right for the button */
+      padding: 6px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     }
+    .user-profile-badge {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-dim); font-size: 0.9rem; font-weight: 500; font-family: var(--font);
+    }
+    .avatar-circle {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hi));
+      border-radius: 50%;
+      color: #fff;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
     .greeting-text {
-      font-size: 0.9rem; color: var(--text-dim); font-weight: 500; letter-spacing: 0.2px;
+      display: flex; align-items: center; gap: 4px;
+      padding-right: 4px;
     }
-    .greeting-text strong { color: #fff; font-weight: 600; margin-left: 4px; }
+    .highlight-name {
+      color: #fff;
+      font-weight: 600;
+      background: linear-gradient(90deg, #fff, var(--accent-hi));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 10px rgba(253, 121, 168, 0.2);
+    }
     .logout-btn {
-      padding: 7px 18px; background: rgba(255, 255, 255, 0.08);
-      border: 1px solid transparent; border-radius: 100px;
-      color: var(--text); font-family: var(--font); font-size: 0.8rem;
-      font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; padding: 0;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid transparent; border-radius: 50%;
+      color: var(--text-dim); cursor: pointer; transition: all 0.2s ease;
     }
-    .logout-btn:hover { background: rgba(253,121,168,0.2); color: var(--danger); }
+    .logout-btn:hover { background: rgba(253,121,168,0.15); color: var(--danger); }
 
     /* ── Library Section ─────────────────────────────── */
     .library-section {
@@ -897,7 +931,8 @@
 
   <!-- ─── Auth Screen ────────────────────────────────────── -->
   <div id="auth-screen" class="screen hidden">
-    <div class="auth-card">
+    <div class="auth-card" style="position: relative;">
+
       <div class="brand" style="justify-content:center; margin-bottom: 4px;">
         <div class="brand-icon">🎵</div>
         <h1>SongScroll</h1>
@@ -921,8 +956,15 @@
   <!-- ─── Upload / Mode Selection Screen ───────────────── -->
   <div id="upload-screen" class="screen hidden">
     <div class="greeting-bar">
-      <span class="greeting-text">Welcome, <strong id="greeting-username">User</strong></span>
-      <button class="logout-btn" id="logout-btn">Logout</button>
+      <div class="user-profile-badge">
+        <div class="avatar-circle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <span class="greeting-text">Welcome back, <span id="greeting-username" class="highlight-name">User</span></span>
+      </div>
+      <button class="logout-btn" id="logout-btn" title="Logout">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
     </div>
     <div class="brand">
       <div class="brand-icon">🎵</div>
