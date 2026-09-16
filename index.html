@@ -696,10 +696,106 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .loader p { color: var(--text-dim); font-size: 0.95rem; }
 
+    /* ── Calibration Screen ────────────────────────── */
+    #calibration-screen { z-index: 105; background: var(--bg-deep); }
+    .cal-topbar {
+      height: 70px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .cal-topbar h2 { font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+    .cal-body {
+      flex: 1; overflow-y: auto; padding: 28px 24px; display: flex; flex-direction: column;
+      align-items: center; gap: 28px;
+    }
+    .cal-live-pitch {
+      text-align: center; padding: 20px 32px; background: var(--bg-glass);
+      border: 1px solid var(--border-hi); border-radius: var(--radius);
+      backdrop-filter: blur(20px); min-width: 260px;
+    }
+    .cal-live-note {
+      font-size: 3rem; font-weight: 800; font-family: var(--font-mono);
+      color: var(--accent-hi); line-height: 1.1; transition: color 0.15s;
+    }
+    .cal-live-hz {
+      font-size: 0.95rem; color: var(--text-dim); font-family: var(--font-mono);
+      margin-top: 4px;
+    }
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+      width: min(640px, 96vw);
+    }
+    .cal-card {
+      padding: 20px 12px; text-align: center; border-radius: var(--radius);
+      background: var(--bg-glass); border: 2px solid var(--border);
+      backdrop-filter: blur(16px); cursor: pointer; transition: var(--transition);
+      position: relative; overflow: hidden;
+    }
+    .cal-card:hover { border-color: var(--border-hi); background: rgba(255,255,255,0.08); }
+    .cal-card.selected {
+      border-color: #fdcb6e; background: rgba(253,203,110,0.08);
+      box-shadow: 0 0 20px rgba(253,203,110,0.15);
+    }
+    .cal-card.detected {
+      border-color: var(--success); background: rgba(0,206,201,0.08);
+      box-shadow: 0 0 16px rgba(0,206,201,0.2);
+    }
+    .cal-card.confirmed {
+      border-color: var(--success); background: rgba(0,206,201,0.12);
+    }
+    .cal-card-note {
+      font-size: 1.6rem; font-weight: 800; font-family: var(--font-mono);
+      margin-bottom: 6px; color: var(--text);
+    }
+    .cal-card-status {
+      font-size: 0.75rem; color: var(--text-dim); min-height: 18px;
+    }
+    .cal-card-hz {
+      font-size: 0.78rem; font-family: var(--font-mono); color: var(--success);
+      margin-top: 4px; min-height: 16px;
+    }
+    .cal-card .cal-card-check {
+      position: absolute; top: 6px; right: 8px; font-size: 1rem; display: none;
+    }
+    .cal-card.confirmed .cal-card-check { display: block; }
+    .cal-instructions {
+      text-align: center; color: var(--text-dim); font-size: 0.9rem;
+      line-height: 1.6; max-width: 500px;
+    }
+    .cal-instructions strong { color: var(--text); }
+    .cal-confirm-bar {
+      display: none; align-items: center; gap: 12px;
+      background: rgba(253,203,110,0.1); border: 1px solid rgba(253,203,110,0.3);
+      padding: 14px 20px; border-radius: var(--radius); text-align: center;
+    }
+    .cal-confirm-bar.visible { display: flex; }
+    .cal-confirm-bar .cal-conf-text {
+      flex: 1; font-size: 0.9rem; color: #fdcb6e; font-weight: 500;
+    }
+    .cal-btn-confirm {
+      padding: 8px 20px; background: var(--success); color: #fff; border: none;
+      border-radius: 100px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+      transition: var(--transition); font-family: var(--font);
+    }
+    .cal-btn-confirm:hover { transform: scale(1.05); }
+    .cal-btn-reject {
+      padding: 8px 20px; background: rgba(255,255,255,0.1); color: var(--text-dim); border: none;
+      border-radius: 100px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+      transition: var(--transition); font-family: var(--font);
+    }
+    .cal-btn-reject:hover { background: rgba(253,121,168,0.2); color: var(--danger); }
+    @keyframes cal-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,206,201,0.3); }
+      50% { box-shadow: 0 0 0 8px rgba(0,206,201,0); }
+    }
+    .cal-card.detected { animation: cal-pulse 1s ease-in-out infinite; }
+    .cal-card.confirmed { animation: none; }
+
     @media (max-width: 600px) {
       .mode-cards { flex-direction: column; }
       .brand h1 { font-size: 1.5rem; }
       .settings-panel { width: 300px; }
+      .cal-grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
@@ -863,6 +959,7 @@
       </div>
     </div>
     <p class="file-hint" style="margin-bottom: 0;">Supports PDF files · Rendered locally in your browser</p>
+    <button class="btn secondary" id="calibrate-btn" style="margin-top: 20px; font-size: 0.85rem; gap: 6px;">🎯 Calibrate Notes</button>
 
     <!-- Library Section -->
     <div class="library-section">
@@ -1050,6 +1147,29 @@
     </div>
   </div>
 
+  <!-- ─── Calibration Screen ──────────────────────────── -->
+  <div id="calibration-screen" class="screen hidden">
+    <div class="cal-topbar">
+      <button class="btn secondary" id="cal-btn-back">← Back</button>
+      <h2>🎯 Note Calibration</h2>
+      <button class="btn" id="cal-btn-listen" style="min-width: 160px; justify-content: center;">Start Listening</button>
+    </div>
+    <div class="cal-body">
+      <div class="cal-instructions">
+        <strong>Test Your Instrument:</strong> Click a note card below to select it, then click "Start Listening". Play that note in different octaves to ensure the microphone picks it up correctly.
+      </div>
+      <div class="cal-live-pitch">
+        <div class="cal-live-note" id="cal-live-note">--</div>
+        <div class="cal-live-hz" id="cal-live-hz">Play a note...</div>
+        <div id="cal-debug" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; font-family: monospace;">RMS: 0.0000 | Pitch: -1</div>
+      </div>
+
+      <div class="cal-grid" id="cal-grid">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
   <!-- ─── Loader ─────────────────────────────────────── -->
   <div class="loader" id="loader">
     <div class="spinner"></div>
@@ -1078,8 +1198,10 @@
     const loader         = document.getElementById('loader');
     const loaderText     = document.getElementById('loader-text');
 
+    const calibrationScreen = document.getElementById('calibration-screen');
+
     function showScreen(screen) {
-      [landingScreen, contactScreen, authScreen, uploadScreen, pdfScreen, textPlayScreen].forEach(s => s.classList.add('hidden'));
+      [landingScreen, contactScreen, authScreen, uploadScreen, pdfScreen, textPlayScreen, calibrationScreen].forEach(s => s.classList.add('hidden'));
       screen.classList.remove('hidden');
     }
 
@@ -1694,6 +1816,73 @@
       const a = (x1 + x3 - 2 * x2) / 2, b = (x3 - x1) / 2;
       if (a) T0 = T0 - b / (2 * a);
       return sampleRate / T0;
+    }
+
+    // YIN Pitch Detection - much better for low notes
+    function yinDetect(buf, sampleRate) {
+        let size = buf.length;
+        let yinBuffer = new Float32Array(Math.floor(size / 2));
+        const threshold = 0.1;
+        let probability = 0;
+        let tauEstimate = -1;
+
+        // Step 1: calculate difference function
+        let minVal = 10000;
+        let minTau = -1;
+        for (let t = 1; t < yinBuffer.length; t++) {
+            for (let i = 0; i < yinBuffer.length; i++) {
+                let delta = buf[i] - buf[i + t];
+                yinBuffer[t] += delta * delta;
+            }
+        }
+
+        // Step 2: cumulative mean normalized difference function
+        yinBuffer[0] = 1;
+        yinBuffer[1] = 1;
+        let runningSum = 0;
+        for (let t = 1; t < yinBuffer.length; t++) {
+            runningSum += yinBuffer[t];
+            yinBuffer[t] *= t / runningSum;
+        }
+
+        // Step 3: absolute threshold
+        for (let t = 2; t < yinBuffer.length; t++) {
+            if (yinBuffer[t] < minVal) {
+                minVal = yinBuffer[t];
+                minTau = t;
+            }
+            if (yinBuffer[t] < threshold) {
+                while (t + 1 < yinBuffer.length && yinBuffer[t + 1] < yinBuffer[t]) {
+                    t++;
+                }
+                tauEstimate = t;
+                probability = 1 - yinBuffer[t];
+                break;
+            }
+        }
+
+        // Global minimum fallback (unconditional)
+        if (tauEstimate === -1) {
+            tauEstimate = minTau;
+        }
+
+        if (tauEstimate !== -1) {
+            // Step 4: parabolic interpolation
+            let s0 = yinBuffer[tauEstimate - 1];
+            let s1 = yinBuffer[tauEstimate];
+            let s2 = yinBuffer[tauEstimate + 1];
+            let betterTau = tauEstimate;
+            if (s2 !== undefined && s0 !== undefined) {
+               betterTau = tauEstimate + (s2 - s0) / (2 * (2 * s1 - s2 - s0));
+            }
+            
+            // Attach minVal to a global for debugging
+            window.yinDebugMinVal = minVal;
+            
+            return sampleRate / betterTau;
+        }
+
+        return -1;
     }
 
     // ── PDF Listen Mode ───────────────────────────────
@@ -2359,7 +2548,7 @@
         tpMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
         tpAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         tpAnalyser = tpAudioCtx.createAnalyser();
-        tpAnalyser.fftSize = 2048;
+        tpAnalyser.fftSize = 8192;
         tpPrevFreqData = new Uint8Array(tpAnalyser.frequencyBinCount);
         const source = tpAudioCtx.createMediaStreamSource(tpMicStream);
         source.connect(tpAnalyser);
@@ -2509,7 +2698,49 @@
       tpAnalyser.getByteFrequencyData(freqData);
       const timeData = new Float32Array(tpAnalyser.fftSize);
       tpAnalyser.getFloatTimeDomainData(timeData);
-      const pitch = autoCorrelate(timeData, tpAudioCtx.sampleRate);
+      
+      // Remove DC offset
+      let mean = 0;
+      for (let i = 0; i < timeData.length; i++) mean += timeData[i];
+      mean /= timeData.length;
+      for (let i = 0; i < timeData.length; i++) timeData[i] -= mean;
+
+      // Check RMS
+      let rms = 0;
+      for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
+      rms = Math.sqrt(rms / timeData.length);
+      
+      let yinPitch = -1;
+      let fftPitch = -1;
+      let pitch = -1; // Final pitch
+      let conf = 1000;
+
+      if (rms > 0.005) {
+          yinPitch = yinDetect(timeData, tpAudioCtx.sampleRate);
+          conf = window.yinDebugMinVal || 1000;
+          
+          let maxBinVal = 0;
+          let maxBinIdx = -1;
+          for (let i = 10; i < freqData.length / 2; i++) {
+             if (freqData[i] > maxBinVal) {
+                 maxBinVal = freqData[i];
+                 maxBinIdx = i;
+             }
+          }
+          if (maxBinVal > 20) {
+             let alpha = freqData[maxBinIdx - 1] || 0;
+             let beta = freqData[maxBinIdx];
+             let gamma = freqData[maxBinIdx + 1] || 0;
+             let p = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
+             fftPitch = (maxBinIdx + p) * (tpAudioCtx.sampleRate / tpAnalyser.fftSize);
+          }
+
+          if (yinPitch > 50 && yinPitch < 2000 && conf < 0.2) {
+              pitch = yinPitch;
+          } else if (fftPitch > 50 && fftPitch < 2000) {
+              pitch = fftPitch;
+          }
+      }
       const now = performance.now();
       let detectedNoteClass = '';
       if (pitch > -1) { 
@@ -2550,11 +2781,7 @@
         }
       }
       
-      // Calculate RMS (Total Energy)
-      let rms = 0;
-      for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
-      rms = Math.sqrt(rms / timeData.length);
-      const isAudible = (rms * 1000) > 5;
+      const isAudible = rms > 0.005;
       const isRmsRising = rms > tpPrevRms * 1.05; // Enforce at least 5% volume increase
       
       // 1. Pluck Detection (Flux Spike + Rising Volume)
@@ -2683,6 +2910,198 @@
       }
       tpPrevRms = rms;
       tpScrollAnimId = requestAnimationFrame(scrollLoop);
+    }
+
+    // ── Calibration Screen ─────────────────────────────
+    const calGrid        = document.getElementById('cal-grid');
+    const calLiveNote    = document.getElementById('cal-live-note');
+    const calLiveHz      = document.getElementById('cal-live-hz');
+    const calBtnListen   = document.getElementById('cal-btn-listen');
+    const calConfirmBar  = document.getElementById('cal-confirm-bar');
+    const calConfText    = document.getElementById('cal-conf-text');
+
+    const calNotes = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    let calIsListening = false, calAudioCtx = null, calAnalyser = null, calMicStream = null, calAnimId = null;
+    let calSelectedNote = null; 
+    let calStablePitch = 0, calStableCount = 0;
+
+    // Build the 12-note grid
+    function buildCalGrid() {
+      calGrid.innerHTML = '';
+      for (const note of calNotes) {
+        const card = document.createElement('div');
+        card.className = 'cal-card';
+        card.dataset.note = note;
+        card.innerHTML = `
+          <div class="cal-card-note">${note}</div>
+          <div class="cal-card-status">Not tested</div>
+          <div class="cal-card-hz"></div>
+        `;
+        card.addEventListener('click', () => selectCalNote(note, card));
+        calGrid.appendChild(card);
+      }
+    }
+
+    function selectCalNote(note, card) {
+      // Deselect previous
+      calGrid.querySelectorAll('.cal-card').forEach(c => c.classList.remove('selected', 'detected'));
+      card.classList.add('selected');
+      calSelectedNote = note;
+      calStableCount = 0;
+      calStablePitch = 0;
+    }
+
+    // Navigation
+    document.getElementById('calibrate-btn').addEventListener('click', () => {
+      buildCalGrid();
+      showScreen(calibrationScreen);
+    });
+    document.getElementById('cal-btn-back').addEventListener('click', () => {
+      stopCalListening();
+      showScreen(uploadScreen);
+    });
+
+    // Listening
+    calBtnListen.addEventListener('click', () => {
+      if (calIsListening) stopCalListening();
+      else startCalListening();
+    });
+
+    async function startCalListening() {
+      try {
+        calMicStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false }
+        });
+        calAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        calAnalyser = calAudioCtx.createAnalyser();
+        calAnalyser.fftSize = 8192; // Maximize resolution for FFT fallback
+        const source = calAudioCtx.createMediaStreamSource(calMicStream);
+        source.connect(calAnalyser);
+        calIsListening = true;
+        calBtnListen.textContent = 'Stop Listening';
+        calBtnListen.style.background = 'var(--danger)';
+        calDetectLoop();
+      } catch (err) {
+        alert('Microphone access is required for calibration.');
+      }
+    }
+
+    function stopCalListening() {
+      calIsListening = false;
+      if (calAnimId) cancelAnimationFrame(calAnimId);
+      if (calMicStream) calMicStream.getTracks().forEach(t => t.stop());
+      if (calAudioCtx) calAudioCtx.close();
+      calAudioCtx = null; calAnalyser = null; calMicStream = null;
+      calBtnListen.textContent = 'Start Listening';
+      calBtnListen.style.background = '';
+      calLiveNote.textContent = '--';
+      calLiveHz.textContent = 'Play a note...';
+    }
+
+    function calDetectLoop() {
+      if (!calIsListening) return;
+      const timeData = new Float32Array(calAnalyser.fftSize);
+      calAnalyser.getFloatTimeDomainData(timeData);
+      
+      // Remove DC offset (can break pitch detection for low notes)
+      let mean = 0;
+      for (let i = 0; i < timeData.length; i++) mean += timeData[i];
+      mean /= timeData.length;
+      for (let i = 0; i < timeData.length; i++) timeData[i] -= mean;
+      
+      // Check RMS
+      let rms = 0;
+      for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
+      rms = Math.sqrt(rms / timeData.length);
+      
+      let yinPitch = -1;
+      let fftPitch = -1;
+      let finalPitch = -1;
+      let conf = 1000;
+      let maxBinVal = 0;
+      let maxBinIdx = -1;
+
+      // Only attempt detection if there's actual volume (ignore room noise)
+      if (rms > 0.005) { // Lowered to 0.005 in case D is quieter
+          yinPitch = yinDetect(timeData, calAudioCtx.sampleRate);
+          conf = window.yinDebugMinVal || 1000;
+          
+          // FFT Peak Detection
+          const freqData = new Uint8Array(calAnalyser.frequencyBinCount);
+          calAnalyser.getByteFrequencyData(freqData);
+          for (let i = 10; i < freqData.length / 2; i++) {
+             if (freqData[i] > maxBinVal) {
+                 maxBinVal = freqData[i];
+                 maxBinIdx = i;
+             }
+          }
+          if (maxBinVal > 20) { // Lowered to 20 in case energy is spread out
+             let alpha = freqData[maxBinIdx - 1] || 0;
+             let beta = freqData[maxBinIdx];
+             let gamma = freqData[maxBinIdx + 1] || 0;
+             let p = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
+             fftPitch = (maxBinIdx + p) * (calAudioCtx.sampleRate / calAnalyser.fftSize);
+          }
+
+          // Trust FFT if YIN confidence is bad (>0.2) or YIN failed
+          if (yinPitch > 50 && yinPitch < 2000 && conf < 0.2) {
+              finalPitch = yinPitch;
+          } else if (fftPitch > 50 && fftPitch < 2000) {
+              finalPitch = fftPitch;
+          }
+      }
+      
+      const calDebug = document.getElementById('cal-debug');
+      if (calDebug) {
+          calDebug.textContent = `RMS: ${rms.toFixed(3)} | maxBin: ${maxBinVal} | YIN: ${yinPitch > 0 ? Math.round(yinPitch) : 'X'} | FFT: ${fftPitch > 0 ? Math.round(fftPitch) : 'X'}`;
+      }
+
+      if (finalPitch > -1) {
+        const fullNote = pitchToNoteString(finalPitch);
+        const noteClass = fullNote.replace(/[0-9-]/g, '');
+        calLiveNote.textContent = fullNote;
+        calLiveNote.style.color = 'var(--accent-hi)';
+        calLiveHz.textContent = finalPitch.toFixed(1) + ' Hz';
+
+        // Stability check: require 5 consecutive frames detecting the same note class
+        if (noteClass === calSelectedNote) {
+          if (Math.abs(finalPitch - calStablePitch) < finalPitch * 0.05) { // Within 5% of previous
+            calStableCount++;
+          } else {
+            calStablePitch = finalPitch;
+            calStableCount = 1;
+          }
+
+          // After 2 stable frames, count it as a success for testing
+          if (calStableCount >= 2) {
+            // Highlight the card
+            const card = calGrid.querySelector(`[data-note="${noteClass}"]`);
+            if (card) {
+              card.classList.add('detected');
+              card.classList.remove('selected');
+              card.querySelector('.cal-card-status').textContent = 'Detected!';
+              card.querySelector('.cal-card-hz').textContent = `${finalPitch.toFixed(1)} Hz (${fullNote})`;
+              
+              // Keep it highlighted for a bit then revert to selected
+              setTimeout(() => {
+                 if (calSelectedNote === noteClass) {
+                     card.classList.remove('detected');
+                     card.classList.add('selected');
+                 }
+              }, 1000);
+            }
+          }
+        } else {
+          calStableCount = 0;
+          calStablePitch = 0;
+        }
+      } else {
+        calLiveNote.style.color = 'var(--text-dim)';
+        calLiveNote.textContent = '--';
+        calLiveHz.textContent = 'Listening...';
+      }
+
+      calAnimId = requestAnimationFrame(calDetectLoop);
     }
   </script>
 </body>
