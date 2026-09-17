@@ -953,6 +953,7 @@
 
       <input type="email" class="auth-input" id="auth-email" placeholder="Email" autocomplete="email" />
       <input type="password" class="auth-input" id="auth-password" placeholder="Password" autocomplete="current-password" />
+      <a href="#" id="auth-forgot-pw" style="display: block; text-align: right; margin-top: -10px; margin-bottom: 20px; font-size: 0.85rem; color: var(--accent-hi); text-decoration: none;">Forgot Password?</a>
       <input type="password" class="auth-input auth-confirm" id="auth-confirm-password" placeholder="Confirm Password" autocomplete="new-password" />
 
       <button class="auth-btn" id="auth-submit-btn">Login</button>
@@ -1344,31 +1345,72 @@
     const authEmail      = document.getElementById('auth-email');
     const authPassword   = document.getElementById('auth-password');
     const authConfirmPw  = document.getElementById('auth-confirm-password');
+    const authForgotPw   = document.getElementById('auth-forgot-pw');
     const authSubmitBtn  = document.getElementById('auth-submit-btn');
     const authMsg        = document.getElementById('auth-msg');
     const greetingName   = document.getElementById('greeting-username');
     const logoutBtn      = document.getElementById('logout-btn');
 
-    let authMode = 'login'; // 'login' or 'signup'
+    let authMode = 'login'; // 'login' | 'signup' | 'recovery' | 'update_password'
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+      
+      const authTabs = document.querySelector('.auth-tabs');
+      const brandSub = document.querySelector('#auth-screen .brand-sub');
+
+      if (mode === 'login') {
+        authTabs.style.display = 'flex';
+        brandSub.textContent = 'Sign in to continue';
+        authTabLogin.classList.add('active');
+        authTabSignup.classList.remove('active');
+        authEmail.style.display = 'block';
+        authPassword.style.display = 'block';
+        authPassword.placeholder = 'Password';
+        authConfirmPw.classList.remove('visible');
+        authForgotPw.style.display = 'block';
+        authSubmitBtn.textContent = 'Login';
+      } else if (mode === 'signup') {
+        authTabs.style.display = 'flex';
+        brandSub.textContent = 'Sign in to continue';
+        authTabSignup.classList.add('active');
+        authTabLogin.classList.remove('active');
+        authEmail.style.display = 'block';
+        authPassword.style.display = 'block';
+        authPassword.placeholder = 'Password';
+        authConfirmPw.classList.add('visible');
+        authForgotPw.style.display = 'none';
+        authSubmitBtn.textContent = 'Sign Up';
+      } else if (mode === 'recovery') {
+        authTabs.style.display = 'flex';
+        brandSub.textContent = 'Enter your email to reset password';
+        authTabLogin.classList.remove('active');
+        authTabSignup.classList.remove('active');
+        authEmail.style.display = 'block';
+        authPassword.style.display = 'none';
+        authConfirmPw.classList.remove('visible');
+        authForgotPw.style.display = 'none';
+        authSubmitBtn.textContent = 'Send Reset Link';
+      } else if (mode === 'update_password') {
+        authTabs.style.display = 'none';
+        brandSub.textContent = 'Enter a new password';
+        authEmail.style.display = 'none';
+        authPassword.style.display = 'block';
+        authPassword.placeholder = 'New Password';
+        authConfirmPw.classList.add('visible');
+        authForgotPw.style.display = 'none';
+        authSubmitBtn.textContent = 'Save New Password';
+      }
+    }
 
     // Tab switching
-    authTabLogin.addEventListener('click', () => {
-      authMode = 'login';
-      authTabLogin.classList.add('active');
-      authTabSignup.classList.remove('active');
-      authSubmitBtn.textContent = 'Login';
-      authConfirmPw.classList.remove('visible');
-      authMsg.textContent = '';
-      authMsg.className = 'auth-msg';
-    });
-    authTabSignup.addEventListener('click', () => {
-      authMode = 'signup';
-      authTabSignup.classList.add('active');
-      authTabLogin.classList.remove('active');
-      authSubmitBtn.textContent = 'Sign Up';
-      authConfirmPw.classList.add('visible');
-      authMsg.textContent = '';
-      authMsg.className = 'auth-msg';
+    authTabLogin.addEventListener('click', () => setAuthMode('login'));
+    authTabSignup.addEventListener('click', () => setAuthMode('signup'));
+    authForgotPw.addEventListener('click', (e) => {
+      e.preventDefault();
+      setAuthMode('recovery');
     });
 
     let currentUser = null;
@@ -1491,6 +1533,70 @@
       authMsg.textContent = '';
       authMsg.className = 'auth-msg';
 
+      if (authMode === 'recovery') {
+        if (!emailInput) {
+          authMsg.textContent = 'Please enter your email address.';
+          authMsg.classList.add('error');
+          return;
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailInput)) {
+          authMsg.textContent = 'Please enter a valid email address.';
+          authMsg.classList.add('error');
+          return;
+        }
+
+        authSubmitBtn.disabled = true;
+        const { error } = await supabase.auth.resetPasswordForEmail(emailInput, {
+          redirectTo: window.location.origin
+        });
+
+        if (error) {
+          authMsg.textContent = error.message;
+          authMsg.classList.add('error');
+        } else {
+          authMsg.textContent = 'Password reset link sent! Check your email.';
+          authMsg.classList.add('success');
+          authEmail.value = '';
+          setTimeout(() => setAuthMode('login'), 5000);
+        }
+        authSubmitBtn.disabled = false;
+        return;
+      }
+
+      if (authMode === 'update_password') {
+        const confirmPw = authConfirmPw.value;
+        if (password.length < 6) {
+          authMsg.textContent = 'Password must be at least 6 characters.';
+          authMsg.classList.add('error');
+          return;
+        }
+        if (password !== confirmPw) {
+          authMsg.textContent = 'Passwords do not match.';
+          authMsg.classList.add('error');
+          return;
+        }
+
+        authSubmitBtn.disabled = true;
+        const { data, error } = await supabase.auth.updateUser({ password });
+        if (error) {
+          authMsg.textContent = error.message;
+          authMsg.classList.add('error');
+        } else {
+          authMsg.textContent = 'Password updated successfully!';
+          authMsg.classList.add('success');
+          authPassword.value = '';
+          authConfirmPw.value = '';
+          setTimeout(() => {
+            const displayName = data.user?.user_metadata?.username || 'User';
+            onLoginSuccess(data.user, displayName);
+          }, 1500);
+        }
+        authSubmitBtn.disabled = false;
+        return;
+      }
+
       if (!emailInput || !password) {
         authMsg.textContent = 'Please enter both email and password.';
         authMsg.classList.add('error');
@@ -1533,19 +1639,16 @@
           authSubmitBtn.disabled = false; return;
         }
 
-        // If data.session is null, email confirmation is required by the Supabase project
         if (data.user && !data.session) {
           authMsg.textContent = 'Signup successful! Please check your email to verify your account.';
-          authMsg.classList.remove('error');
           authMsg.classList.add('success');
           authSubmitBtn.disabled = false;
           
-          // Clear fields and switch to login mode after a short delay
           setTimeout(() => {
             authEmail.value = '';
             authPassword.value = '';
             authConfirmPw.value = '';
-            authTabLogin.click();
+            setAuthMode('login');
           }, 3000);
           return;
         }
@@ -1588,6 +1691,13 @@
     } else {
       showScreen(landingScreen);
     }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        showScreen(authScreen);
+        setAuthMode('update_password');
+      }
+    });
 
     // ══════════════════════════════════════════════════
     // SECTION A: PDF CANVAS MODE
