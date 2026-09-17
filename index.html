@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
-  <script src="https://smtpjs.com/v3/smtp.js"></script>
   <style>
     /* ── Reset & Base ─────────────────────────────────── */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1324,22 +1323,6 @@
       try {
         const { error } = await supabase.from('feedback').insert([{ name, email, message }]);
         if (error) throw error;
-        
-        // Send email notification
-        try {
-          await Email.send({
-            Host: "smtp.gmail.com",
-            Username: "songscroll2026@gmail.com",
-            Password: "Mobile@2026",
-            To: 'songscroll2026@gmail.com',
-            From: "songscroll2026@gmail.com",
-            Subject: "New SongScroll Feedback from " + name,
-            Body: "<strong>Name:</strong> " + name + "<br/><strong>Email:</strong> " + (email || "Not provided") + "<br/><br/><strong>Message:</strong><br/>" + message
-          });
-        } catch (emailErr) {
-          console.error('Failed to send email:', emailErr);
-          // Don't fail the user interaction if just the email notification fails
-        }
         
         msgEl.textContent = 'Thank you for your feedback!';
         msgEl.className = 'auth-msg success';
