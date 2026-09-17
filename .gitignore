@@ -11,3 +11,4 @@ extract-js.js
 .env
 *backup*
 test.mjs
+videos/credentials.txt
