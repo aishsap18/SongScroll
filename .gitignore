@@ -1,4 +1,6 @@
 node_modules/
+videos/*
+!videos/SongScroll_How_to_Guide_with_Voiceover.mp4
 *.log
 test-*.js
 out.txt
