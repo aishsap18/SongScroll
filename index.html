@@ -951,7 +951,7 @@
         <button class="auth-tab" id="auth-tab-signup">Sign Up</button>
       </div>
 
-      <input type="text" class="auth-input" id="auth-username" placeholder="Username" autocomplete="username" />
+      <input type="email" class="auth-input" id="auth-email" placeholder="Email" autocomplete="email" />
       <input type="password" class="auth-input" id="auth-password" placeholder="Password" autocomplete="current-password" />
       <input type="password" class="auth-input auth-confirm" id="auth-confirm-password" placeholder="Confirm Password" autocomplete="new-password" />
 
@@ -1341,7 +1341,7 @@
     // ── Auth UI Elements ─────────────────────────────────
     const authTabLogin   = document.getElementById('auth-tab-login');
     const authTabSignup  = document.getElementById('auth-tab-signup');
-    const authUsername    = document.getElementById('auth-username');
+    const authEmail      = document.getElementById('auth-email');
     const authPassword   = document.getElementById('auth-password');
     const authConfirmPw  = document.getElementById('auth-confirm-password');
     const authSubmitBtn  = document.getElementById('auth-submit-btn');
@@ -1486,29 +1486,32 @@
 
     // Submit handler
     authSubmitBtn.addEventListener('click', async () => {
-      const username = authUsername.value.trim().toLowerCase();
+      const emailInput = authEmail.value.trim().toLowerCase();
       const password = authPassword.value;
       authMsg.textContent = '';
       authMsg.className = 'auth-msg';
 
-      if (!username || !password) {
-        authMsg.textContent = 'Please enter both username and password.';
+      if (!emailInput || !password) {
+        authMsg.textContent = 'Please enter both email and password.';
         authMsg.classList.add('error');
         return;
       }
-      if (username.length < 3) {
-        authMsg.textContent = 'Username must be at least 3 characters.';
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailInput)) {
+        authMsg.textContent = 'Please enter a valid email address.';
         authMsg.classList.add('error');
         return;
       }
+
       if (password.length < 6) {
         authMsg.textContent = 'Password must be at least 6 characters.';
         authMsg.classList.add('error');
         return;
       }
 
-      const email = `${username}@songscroll.app`;
       authSubmitBtn.disabled = true;
+      const derivedUsername = emailInput.split('@')[0];
 
       if (authMode === 'signup') {
         const confirmPw = authConfirmPw.value;
@@ -1520,25 +1523,44 @@
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email, password, options: { data: { username } }
+          email: emailInput, password, options: { data: { username: derivedUsername } }
         });
 
         if (error) {
           let msg = error.message;
-          if (msg.includes('already registered')) msg = 'This username is already taken.';
+          if (msg.includes('already registered')) msg = 'This email is already registered.';
           authMsg.textContent = msg; authMsg.classList.add('error');
           authSubmitBtn.disabled = false; return;
         }
-        onLoginSuccess(data.user, username);
+
+        // If data.session is null, email confirmation is required by the Supabase project
+        if (data.user && !data.session) {
+          authMsg.textContent = 'Signup successful! Please check your email to verify your account.';
+          authMsg.classList.remove('error');
+          authMsg.classList.add('success');
+          authSubmitBtn.disabled = false;
+          
+          // Clear fields and switch to login mode after a short delay
+          setTimeout(() => {
+            authEmail.value = '';
+            authPassword.value = '';
+            authConfirmPw.value = '';
+            authTabLogin.click();
+          }, 3000);
+          return;
+        }
+
+        onLoginSuccess(data.user, derivedUsername);
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: emailInput, password });
         if (error) {
           let msg = error.message;
-          if (msg.includes('Invalid login credentials')) msg = 'Invalid username or password.';
+          if (msg.includes('Invalid login credentials')) msg = 'Invalid email or password.';
+          if (msg.toLowerCase().includes('email not confirmed')) msg = 'Please verify your email address before logging in.';
           authMsg.textContent = msg; authMsg.classList.add('error');
           authSubmitBtn.disabled = false; return;
         }
-        const displayName = data.user?.user_metadata?.username || username;
+        const displayName = data.user?.user_metadata?.username || derivedUsername;
         onLoginSuccess(data.user, displayName);
       }
       authSubmitBtn.disabled = false;
@@ -1553,7 +1575,7 @@
       await supabase.auth.signOut();
       currentUser = null;
       userLibraryFiles = [];
-      authUsername.value = ''; authPassword.value = ''; authConfirmPw.value = '';
+      authEmail.value = ''; authPassword.value = ''; authConfirmPw.value = '';
       authMsg.textContent = ''; authMsg.className = 'auth-msg';
       showScreen(landingScreen);
     });
