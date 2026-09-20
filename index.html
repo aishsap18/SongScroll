@@ -843,11 +843,76 @@
     .cal-card.detected { animation: cal-pulse 1s ease-in-out infinite; }
     .cal-card.confirmed { animation: none; }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .mode-cards { flex-direction: column; }
       .brand h1 { font-size: 1.5rem; }
-      .settings-panel { width: 300px; }
+      .settings-panel { width: 300px; max-width: 90vw; }
       .cal-grid { grid-template-columns: repeat(3, 1fr); }
+      
+      /* Toolbars */
+      .play-toolbar, .pdf-toolbar {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 12px;
+        gap: 12px;
+        justify-content: center;
+      }
+      .play-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+      }
+      .play-toolbar > .btn.secondary, .pdf-toolbar > .icon-btn {
+        margin-bottom: 4px;
+      }
+      
+      /* Upload Screen */
+      .greeting-bar {
+        flex-direction: column;
+        height: auto;
+        padding: 12px;
+        gap: 10px;
+        align-items: center;
+        text-align: center;
+      }
+      .library-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .library-search-wrapper {
+        width: 100%;
+      }
+      
+      /* Containers */
+      .teleprompter-container {
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-top: 200px;
+      }
+      .pdf-render-container {
+        padding-top: 130px;
+      }
+      
+      /* Fix info banners height */
+      .info-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+      }
+      .info-banner .content {
+        margin-top: 8px;
+        padding-right: 20px;
+      }
+      
+      /* Adjust buttons to fit better */
+      .btn {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+      }
+      .auth-input {
+        padding: 14px 16px;
+      }
     }
   </style>
 
