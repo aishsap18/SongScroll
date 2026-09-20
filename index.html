@@ -481,6 +481,12 @@
       display: flex; align-items: center; gap: 8px;
     }
     .setting-group { margin-bottom: 22px; }
+    .panel-close-btn {
+      position: absolute; top: 20px; right: 20px;
+      background: transparent; border: none; color: var(--text-dim);
+      font-size: 1.5rem; cursor: pointer; transition: color 0.2s;
+    }
+    .panel-close-btn:hover { color: var(--danger); }
     .setting-group label {
       display: flex; align-items: center; justify-content: space-between;
       font-size: 0.85rem; font-weight: 500; color: var(--text-dim); margin-bottom: 8px;
@@ -1170,6 +1176,7 @@
 
     <!-- Settings Panel -->
     <div class="settings-panel" id="pdf-settings-panel">
+      <button class="panel-close-btn" id="pdf-settings-close">&times;</button>
       <h3>⚙ Scroll Settings</h3>
       <div class="setting-group">
         <label>Scroll Speed <span class="val" id="pdf-lbl-speed">0.3</span></label>
@@ -1274,6 +1281,7 @@
     <div class="teleprompter-container" id="tp-container"></div>
     
     <div class="settings-panel" id="tp-settings-panel">
+      <button class="panel-close-btn" id="tp-settings-close">&times;</button>
       <h3>⚙ Teleprompter Settings</h3>
       <div class="setting-group">
         <label>Scroll Speed <span class="val" id="tp-lbl-speed">1.5</span></label>
@@ -2041,6 +2049,10 @@
 
     // Settings
     pdfBtnSettings.addEventListener('click', () => { pdfSettingsPanel.classList.toggle('open'); pdfBtnSettings.classList.toggle('active'); });
+    document.getElementById('pdf-settings-close').addEventListener('click', () => {
+      pdfSettingsPanel.classList.remove('open');
+      pdfBtnSettings.classList.remove('active');
+    });
     document.addEventListener('click', e => {
       if (pdfSettingsPanel.classList.contains('open') && !pdfSettingsPanel.contains(e.target) && e.target !== pdfBtnSettings && !pdfBtnSettings.contains(e.target)) {
         pdfSettingsPanel.classList.remove('open'); pdfBtnSettings.classList.remove('active');
@@ -2662,6 +2674,7 @@
     const tpBtnSettings = document.getElementById('tp-btn-settings');
     const tpSettingsPanel = document.getElementById('tp-settings-panel');
     tpBtnSettings.addEventListener('click', () => tpSettingsPanel.classList.toggle('open'));
+    document.getElementById('tp-settings-close').addEventListener('click', () => tpSettingsPanel.classList.remove('open'));
 
     const chordModRegex = /\b[A-G](?:#|b)?(?:m|min|maj|M|sus|dim|aug|7|9|11|13)\b/i;
 
