@@ -1634,7 +1634,7 @@
       try {
         const path = `${currentUser.id}/${file.name}`;
         const { data, error } = await supabase.storage.from('pdfs').upload(path, file, {
-          cacheControl: '3600',
+          cacheControl: '0',
           upsert: true
         });
         if (error) throw error;
@@ -2776,7 +2776,7 @@
         const overridesObj = Object.fromEntries(tpManualOverrides);
         const jsonFile = new File([JSON.stringify(overridesObj)], currentTextFilename + '_overrides.json', { type: 'application/json' });
         supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}_overrides.json`, jsonFile, {
-          cacheControl: '3600',
+          cacheControl: '0',
           upsert: true
         }).catch(err => console.error('Error saving toggle overrides:', err));
       };
@@ -2955,7 +2955,7 @@
         if (currentUser && currentTextFilename) {
           const txtFile = new File([textEditor.value], currentTextFilename + '.txt', { type: 'text/plain' });
           supabase.storage.from('pdfs').upload(`${currentUser.id}/${currentTextFilename}.txt`, txtFile, {
-            cacheControl: '3600',
+            cacheControl: '0',
             upsert: true
           }).catch(err => console.error('Error saving text edits:', err));
           
