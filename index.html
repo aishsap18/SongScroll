@@ -1595,6 +1595,19 @@
           handlePdfFile(file);
         } else {
           currentTextFilename = filename;
+          
+          // Fetch manual tracking overrides first
+          const { data: jsonObj, error: jsonError } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}_overrides.json`);
+          if (!jsonError && jsonObj) {
+            try {
+               const overridesMap = JSON.parse(await jsonObj.text());
+               tpManualOverrides.clear();
+               for (const [k, v] of Object.entries(overridesMap)) {
+                  tpManualOverrides.set(k, v);
+               }
+            } catch(e) { console.error('Failed parsing overrides:', e); }
+          }
+
           // Try to fetch saved edits (.txt)
           const { data: txtData, error: txtError } = await supabase.storage.from('pdfs').download(`${currentUser.id}/${filename}.txt`);
           if (!txtError && txtData) {
@@ -2945,6 +2958,8 @@
             cacheControl: '3600',
             upsert: true
           }).catch(err => console.error('Error saving text edits:', err));
+          
+          saveToggleOverrides(true); // Save overrides because text lines might have changed
         }
         
         if (savedIdx < tpTrackableLines.length) {
