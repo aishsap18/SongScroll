@@ -4,6 +4,10 @@ SongScroll is an intelligent, auto-scrolling teleprompter designed specifically 
 
 Gone are the days of hastily swiping at your iPad mid-song!
 
+## 📺 Demo
+
+Check out SongScroll in action: [https://youtu.be/iZdj-QkGI2M](https://youtu.be/iZdj-QkGI2M)
+
 ## ✨ Features
 
 *   **🎙️ Pluck Detection (Note Follow):** Uses your device's microphone to listen to your instrument. It counts the notes you play on each line and automatically scrolls to the next line when you finish.
